@@ -186,8 +186,9 @@ function oracle(A, B, C, D) {
 
         const oracleHeader = window.oracle.toString().match(/\(([^)]+)\)/);
         const numVariables = oracleHeader ? oracleHeader[1].split(',').length : 0;
+        
         const outputArea = document.getElementById('output');
-
+        outputArea.value = 'Number of variables: ' + numVariables + '\n\n';
 
         for (let k = 1; k <= numVariables+1; k++) {
             const listMinterms = [];
@@ -200,12 +201,11 @@ function oracle(A, B, C, D) {
                 else if (item.oracle_response === undefined) listDontCares.push(decimalValue);
             }
 
-            outputArea.value += `K = ${k}\n`;
-            outputArea.value += `Minterms: ${listMinterms.join(', ')}\n`;
-            outputArea.value += `Dont Cares: ${listDontCares.join(', ')}\n\n`;
+            outputArea.value += `When number of ones is ${k}\n`;
+            outputArea.value += `    Minterms: ${listMinterms.join(', ')}\n`;
+            outputArea.value += `    Don't Cares: ${listDontCares.join(', ')}\n\n`;
         }
 
-        outputArea.value = 'Number of variables: ' + numVariables + '\n\n';
     }
 
 </script>
