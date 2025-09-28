@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang='en'>
 <head>
-    <meta charset="UTF-8">
-    <title>Quine McCluskey</title>
+    <meta charset='UTF-8'>
+    <title>Boolean Expression Minimization: Quine-McCluskey</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -37,7 +37,7 @@
             align-items: center;
             height: 100%;
         }
-        .begin-btn {
+        .run-btn {
             margin-top: 25px;
             height: 120px;
             width: 100px;
@@ -47,38 +47,37 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="section">
-            <label for="oracle">Oracle Function</label>
-            <textarea id="oracle">
+    <div class='container'>
+        <div class='section'>
+            <label for='oracle'>Oracle Function</label>
+            <textarea id='oracle'>
 function oracle(A, B, C, D) {
     const num = (A << 3) | (B << 2) | (C << 1) | D;
 
-    if ([4, 8, 10, 11, 12].includes(num))
+    if ([0b0100, 0b1000, 0b1010, 0b1011, 0b1100].includes(num))
         return true;
 
-    if ([9, 14].includes(num))
-        return undefined;
+    if ([0b1001, 0b1110].includes(num))
+        return undefined; // Don't cares
 
-    if (num === 15)
+    if (num === 0b1111)
         return false;
 
     return false;
-}
-            </textarea>
-            </textarea>
+}</textarea>
         </div>
-        <div class="middle">
-            <button class="begin-btn" onclick="begin()">Begin</button>
+        <div class='middle'>
+            <button class='run-btn' onclick='run()'>Run</button>
         </div>
-        <div class="section">
-            <label for="output">Output Function</label>
-            <textarea id="output"></textarea>
+        <div class='section'>
+            <label for='output'>Output Function</label>
+            <textarea id='output'></textarea>
         </div>
     </div>
 </body>
 
 <script>
+
     // Generate Pascal's triangle table for binomial coefficients (BigInt)
     function binomialCoefficientTable(n, k) {
         const table = Array.from({ length: n + 1 }, () => Array(k + 1).fill(0n));
@@ -147,7 +146,12 @@ function oracle(A, B, C, D) {
 
         for (let r = start; r < end; r++) {
             const bits = indicesToBits(n, indices);
-            const oracleResult = oracleFunction(...bits);
+            try {
+                const oracleResult = oracleFunction(...bits);
+            } catch (e) {
+                const oracleResult = false;
+                document.getElementById('output').value += `ERROR: ${e.message}\n`;
+            }
             if (oracleResult === true || oracleResult === undefined) {
                 yield {
                     bits: bits.join(''),
@@ -173,7 +177,7 @@ function oracle(A, B, C, D) {
         return indicesToBits(n, indices).join('');
     }
 
-    function begin() {
+    function run() {
         const oracleFunction = document.getElementById('oracle').value;
 
         const oldScript = document.getElementById('insert-oracle');
@@ -188,8 +192,8 @@ function oracle(A, B, C, D) {
         const numVariables = oracleHeader ? oracleHeader[1].split(',').length : 0;
         
         const outputArea = document.getElementById('output');
-        outputArea.value = 'Number of variables: ' + numVariables + '\n\n';
 
+        outputArea.value = 'Number of variables: ' + numVariables + '\n\n';
         for (let k = 1; k <= numVariables+1; k++) {
             const listMinterms = [];
             const listDontCares = [];
@@ -201,15 +205,15 @@ function oracle(A, B, C, D) {
                 else if (item.oracle_response === undefined) listDontCares.push(decimalValue);
             }
 
-            outputArea.value += `When number of ones is ${k}\n`;
-            outputArea.value += `    Minterms: ${listMinterms.join(', ')}\n`;
-            outputArea.value += `    Don't Cares: ${listDontCares.join(', ')}\n\n`;
+            outputArea.value += `When number of ones is ${k}:\n`;
+            outputArea.value += `    Minterms: [${listMinterms.map(x => x.toString(2).padStart(numVariables, '0')).join(', ')}]\n`;
+            outputArea.value += `    Don't Cares: [${listDontCares.map(x => x.toString(2).padStart(numVariables, '0')).join(', ')}]\n\n`;
         }
 
     }
-
+    
 </script>
 
-<script id="insert-oracle" type="text/javascript"></script>
+<script id='insert-oracle' type='text/javascript'></script>
 
 </html>
