@@ -60,16 +60,15 @@
             <label for='oracle'>Oracle Function</label>
             <textarea id='oracle'>
 function oracle(A, B, C, D) {
+    // Encode A B C D as a number 0..15
     const num = (A << 3) | (B << 2) | (C << 1) | D;
 
-    if ([0b0100, 0b1000, 0b1010, 0b1011, 0b1100].includes(num))
+    if ([4, 8, 10, 11, 12, 15].includes(num))
         return true;
 
-    if ([0b1001, 0b1110].includes(num))
-        return undefined; // Don't cares
-
-    if (num === 0b1111)
-        return true;
+    // Don't cares
+    if ([9, 14].includes(num))
+        return undefined;
 
     return false;
 }</textarea>
@@ -234,10 +233,58 @@ function oracle(A, B, C, D) {
     }
 
     class QuineMcCluskey {
+
+        // Generate variable names sequentially
+        static defaultVarNames(n) {
+            const out = [];
+            for (let i = 0; i < n; i++) {
+                let s = '', x = i;
+                while (x >= 0) {
+                    const rem = x % 26;
+                    s = String.fromCharCode(65 + rem) + s;
+                    x = Math.floor(x / 26) - 1;
+                }
+                out.push(s);
+            }
+            return out;
+        }
+
+        // Get prime implicants from oracle function
+        static toBitString(n, value) {
+            return value.toString(2).padStart(n, '0');
+        }
+
         static countSetBits(bitPattern) {
             let count = 0;
             for (let i = 0; i < bitPattern.length; i++) if (bitPattern[i] === '1') count++;
             return count;
+        }
+
+        // Extract essential prime implicants from the coverage chart
+        // Returns array of implicant bit patterns
+        static getEssentialPrimeImplicants(chart) {
+            const coverageRows = [...chart.values()];
+            const implicantPatterns = [...chart.keys()];
+            if (!coverageRows.length) return [];
+            const columnCount = coverageRows[0].length;
+            const essentialPatterns = new Set();
+
+            for (let colIndex = 0; colIndex < columnCount; colIndex++) {
+                let implicantCoverCount = 0;
+                let lastCoveringRowIndex = -1;
+
+                for (let rowIndex = 0; rowIndex < coverageRows.length; rowIndex++) {
+                    if (coverageRows[rowIndex][colIndex] === '1') {
+                        implicantCoverCount++;
+                        lastCoveringRowIndex = rowIndex;
+                        if (implicantCoverCount > 1) break;
+                    }
+                }
+                if (implicantCoverCount === 1) {
+                    essentialPatterns.add(implicantPatterns[lastCoveringRowIndex]);
+                }
+            }
+            return [...essentialPatterns];
         }
 
         static mergeIfOneBitApart(firstBits, secondBits) {
@@ -342,29 +389,28 @@ function oracle(A, B, C, D) {
         }
 
         // Extract minterms and don't-cares using the oracle. Verbose mode also constructs the initial implicant merge levels
-        // Output: { minterms, dontCares, variableCount }
-        static enumerateMintermsAndDontCares(numVariables, oracleFunction, verbose = true) {
+        // Output: { minterms, dontCares, numVariables }
+        static solve(numVariables, oracleFunction, variableNames, verbose = true) {
             const minterms = [];
             const dontCares = [];
 
-            // High-performing path
-            if (!verbose) {
-                for (let weight = 0; weight <= numVariables; weight++) {
-                    for (const item of BinomialCoefficients.filterGenerator(numVariables, weight, oracleFunction)) {
-                        const valueNum = Number(item.value);
-                        if (item.oracleResponse === true) {
-                            minterms.push(valueNum);
-                        } else {
-                            dontCares.push(valueNum);
-                        }
-                    }
-                }
-                return { minterms, dontCares, variableCount: numVariables };
-            }
+            // if (!verbose) {
+            //     for (let weight = 0; weight <= numVariables; weight++) {
+            //         for (const item of BinomialCoefficients.filterGenerator(numVariables, weight, oracleFunction)) {
+            //             const valueNum = Number(item.value);
+            //             if (item.oracleResponse === true) {
+            //                 minterms.push(valueNum);
+            //             } else {
+            //                 dontCares.push(valueNum);
+            //             }
+            //         }
+            //     }
+            //     return { minterms, dontCares, numVariables: numVariables };
+            // }
 
             // Verbose path
             const outputArea = document.getElementById('output');
-            outputArea.value = 'Number of variables: ' + numVariables + '\n\n';
+            outputArea.value += 'Number of variables: ' + numVariables + '\n\n';
 
             const mintermRowsByWeight = new Map();
             let previousWeightImplicants = null;
@@ -449,8 +495,26 @@ function oracle(A, B, C, D) {
             const implicantLevels = QuineMcCluskey.buildImplicantLevels(firstLevelTerms);
 
             if (!implicantLevels.length) {
-                outputArea.value += 'No implicants produced.\n';
-                return { minterms, dontCares, variableCount: numVariables };
+                outputArea.value += 'No merges. Using minterms as prime implicants.\n';
+                // Collect the 0‑cube implicants (original minterms)
+                const implicantPatterns = [];
+                for (const weightRows of mintermRowsByWeight.values()) {
+                    for (const row of weightRows) {
+                        if (row.mintermVal !== null) implicantPatterns.push(row.bits);
+                    }
+                }
+                implicantPatterns.sort();
+                const implicantToProduct = (bits) => {
+                    const literals = [];
+                    for (let i = 0; i < bits.length; i++) {
+                        const ch = bits[i];
+                        const v = variableNames[i] || String.fromCharCode(65 + i);
+                        literals.push(ch === '1' ? v : v + "'");
+                    }
+                    return literals.join('');
+                };
+                const sumOfProductsTerms = implicantPatterns.map(implicantToProduct);
+                return sumOfProductsTerms;
             }
 
             // Prime implicants after first merge from size 2 and size 4 levels
@@ -507,8 +571,85 @@ function oracle(A, B, C, D) {
                 }
             }
             outputArea.value += '\n';
+            // Prime implicants
+            const allPrimeBits = new Set();
+            for (const lvl of implicantLevels) {
+                for (const b of lvl.primeSet) allPrimeBits.add(b);
+            }
+            const primeImplicantsBits = Array.from(allPrimeBits).sort();
 
-            return { minterms, dontCares, variableCount: numVariables };
+            // Coverage chart
+            const mintermsSorted = [...minterms].sort((a, b) => a - b);
+            const mintermBinaryStrings = mintermsSorted.map(v => QuineMcCluskey.toBitString(numVariables, v));
+            const coverageChart = new Map();
+            for (const implicantPattern of primeImplicantsBits) {
+                const patternRegex = new RegExp('^' + implicantPattern.replace(/-/g, '[01]') + '$');
+                const coverageBits = mintermBinaryStrings.map(binStr => (patternRegex.test(binStr) ? '1' : '0')).join('');
+                coverageChart.set(implicantPattern, coverageBits);
+            }
+
+            // Essential prime implicants
+            const essentialBits = new Set(QuineMcCluskey.getEssentialPrimeImplicants(coverageChart));
+
+            // Chart output
+            outputArea.value += 'Prime Implicant Chart\n';
+            outputArea.value += ['Prime Implicant', ...mintermsSorted.map(m => 'm' + m)].join('\t') + '\n';
+            for (const pi of primeImplicantsBits) {
+                const row = coverageChart.get(pi) || '';
+                outputArea.value += (pi + (essentialBits.has(pi) ? ' *' : '')) + '\t' + row.split('').join('\t') + '\n';
+            }
+            outputArea.value += '\n';
+
+            // Essential list
+            const essentialList = [...essentialBits].sort((a, b) => a.localeCompare(b));
+            outputArea.value += 'Essential Prime Implicants: ' + (essentialList.length ? essentialList.join(', ') : '(none)') + '\n\n';
+
+            // Product term builder
+            const productFromPattern = (pattern) => {
+                const tokens = [];
+                const jsTokens = [];
+                for (let i = 0; i < pattern.length; i++) {
+                    const bit = pattern[i];
+                    if (bit === '-') continue;
+                    const varName = variableNames[i] || ('V' + i);
+                    if (bit === '1') {
+                        tokens.push(varName);
+                        jsTokens.push(varName);
+                    } else {
+                        tokens.push(varName + "'");
+                        jsTokens.push('!' + varName);
+                    }
+                }
+                const product = tokens.length ? tokens.join(' ') : '1';
+                let js;
+                if (!jsTokens.length) js = 'true';
+                else if (jsTokens.length === 1) js = jsTokens[0];
+                else js = jsTokens.join(' && ');
+                return { product, js };
+            };
+
+            // Expand implicants
+            const primeImplicantsExpanded = primeImplicantsBits.map(pattern => {
+                const coverageBits = coverageChart.get(pattern) || '';
+                const covers = [];
+                for (let i = 0; i < coverageBits.length; i++) {
+                    if (coverageBits[i] === '1') covers.push(mintermsSorted[i]);
+                }
+                const { product, js } = productFromPattern(pattern);
+                return {
+                    pattern,
+                    product,
+                    jsExpression: js,
+                    covers,
+                    essential: essentialBits.has(pattern)
+                };
+            }).sort((a, b) => a.pattern.localeCompare(b.pattern));
+            
+            // Build expression
+            const essentialExpanded = primeImplicantsExpanded.filter(pi => pi.essential);
+            const jsExpression = essentialExpanded.length ? essentialExpanded.map(pi => pi.jsExpression).join(' || ') : 'false';
+            outputArea.value += jsExpression + '\n';
+            return jsExpression;
         }
     }
 
@@ -518,7 +659,14 @@ function oracle(A, B, C, D) {
         outputArea.value += 'ERROR: ' + e.message + '\n';
     }
 
+    console.error = function (e) {
+        error(e);
+    };
+
     function run() {
+        const outputArea = document.getElementById('output');
+        outputArea.value = '';
+
         const oldScript = document.getElementById('insert-oracle');
         if (oldScript) oldScript.remove();
 
@@ -526,17 +674,43 @@ function oracle(A, B, C, D) {
         const oracleCode = document.getElementById('oracle').value;
         script.id = 'insert-oracle';
         script.textContent = oracleCode;
+        script.onerror = (e) => {
+            error(e);
+        };
+        window.oracle = null;
         document.body.appendChild(script);
 
-        const oracleHeader = window.oracle.toString().match(/\(([^)]+)\)/);
-        const numVariables = oracleHeader ? oracleHeader[1].split(',').length : 0;
+        if (typeof window.oracle !== 'function') {
+            error(new Error('Oracle function not defined'));
+            return;
+        }
 
-        QuineMcCluskey.enumerateMintermsAndDontCares(numVariables, window.oracle, true);
+        // Extract the input argument names
+        const oracleHeader = window.oracle.toString().match(/\(([^)]*)\)/);
+        const paramList = oracleHeader ? oracleHeader[1] : '';
+        const parsedNames = paramList.split(',').map(s => s.trim()).filter(Boolean);
+        const variableNames = (parsedNames.length ? parsedNames : QuineMcCluskey.defaultVarNames(parsedNames.length));
+
+        const expression = QuineMcCluskey.solve(parsedNames.length, window.oracle, variableNames, true);
+
+        // Collect used vars from expression
+        const identifierRegex = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
+        const used = new Set();
+        let match;
+        while ((match = identifierRegex.exec(expression)) !== null) {
+            const name = match[0];
+            // Filter to original vars (skip literals)
+            if (variableNames.includes(name) && name !== 'true' && name !== 'false') {
+            used.add(name);
+            }
+        }
+        // Keep original order
+        const minimizedVarList = variableNames.filter(v => used.has(v));
+        const funcArgs = minimizedVarList.join(', ');
+        const funcBody = 'return ' + expression + ';';
+        const finalFunction = 'function minimized(' + funcArgs + ') {\n  ' + funcBody + '\n}';
+        outputArea.value = finalFunction + '\n';
     }
-
-    console.error = function (e) {
-        error(e);
-    };
 </script>
 
 <script id='insert-oracle' type='text/javascript'></script>
