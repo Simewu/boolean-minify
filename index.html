@@ -69,7 +69,7 @@ function oracle(A, B, C, D) {
         return undefined; // Don't cares
 
     if (num === 0b1111)
-        return false;
+        return true;
 
     return false;
 }</textarea>
@@ -208,7 +208,7 @@ function oracle(A, B, C, D) {
                 if (oracleResult === true || oracleResult === undefined) {
                     yield {
                         value: box.value,
-                        ...(includeBits ? { bits: bits.join('') } : {}),
+                        bits: includeBits ? bits.join('') : undefined,
                         oracleResponse: oracleResult === true ? true : undefined,
                         rank: r
                     };
@@ -233,42 +233,291 @@ function oracle(A, B, C, D) {
         }
     }
 
-    // Next, a class to calculate the Quine-McCluskey minimization
     class QuineMcCluskey {
-
-        static getMintermsAndDontCares(numVariables, oracleFunction, verbose = true) {
-            const outputArea = document.getElementById('output');
-            outputArea.value = '';
-            outputArea.value += 'Number of variables: ' + numVariables + '\n\n';
-            for (let k = 1; k <= numVariables; k++) {
-                const listMinterms = [];
-                const listDontCares = [];
-
-                const filtered = BinomialCoefficients.filter(numVariables, k, oracleFunction);
-                for (const item of filtered) {
-                    const decimalValue = parseInt(item.bits, 2);
-                    if (item.oracleResponse === true) listMinterms.push(decimalValue);
-                    else if (item.oracleResponse === undefined) listDontCares.push(decimalValue);
-                }
-
-                if (verbose) {
-                    outputArea.value += `When number of ones is ${k}:\n`;
-                    outputArea.value += `    Minterms: [${listMinterms.map(x => x.toString(2).padStart(numVariables, '0')).join(', ')}]\n`;
-                    outputArea.value += `    Don't Cares: [${listDontCares.map(x => x.toString(2).padStart(numVariables, '0')).join(', ')}]\n\n`;
-                }
-            }
+        static countSetBits(bitPattern) {
+            let count = 0;
+            for (let i = 0; i < bitPattern.length; i++) if (bitPattern[i] === '1') count++;
+            return count;
         }
 
+        static mergeIfOneBitApart(firstBits, secondBits) {
+            if (firstBits.length !== secondBits.length) return null;
+            let diffCount = 0;
+            const merged = [];
+            for (let i = 0; i < firstBits.length; i++) {
+                const a = firstBits[i], b = secondBits[i];
+                if (a === b) {
+                    merged.push(a);
+                    continue;
+                }
+                // Cannot merge if either is already a don't-care
+                if (a === '-' || b === '-') return null;
+                diffCount++;
+                // Only 1 differing bit allowed
+                if (diffCount > 1) return null;
+                // Mark differing bit as don't-care
+                merged.push('-');
+            }
+            return diffCount === 1 ? merged.join('') : null;
+        }
+
+        static mergeOneBitPass(implicants) {
+            for (const implicant of implicants) {
+                implicant.used = false;
+            }
+
+            // Group implicants by number of 1s
+            const termsByOneCount = new Map();
+            for (const implicant of implicants) {
+                const oneCount = QuineMcCluskey.countSetBits(implicant.bits);
+                if (!termsByOneCount.has(oneCount)) { // Initialize
+                    termsByOneCount.set(oneCount, []);
+                }
+                termsByOneCount.get(oneCount).push(implicant);
+            }
+
+            const sortedWeights = Array.from(termsByOneCount.keys()).sort((a, b) => a - b);
+            const mergedTermsByBits = new Map();
+            // For each parent term, what children it merged into
+            const parentToMergedChildren = new Map();
+
+            const registerParentChild = (parentBits, childTerm) => {
+                let arr = parentToMergedChildren.get(parentBits);
+                if (!arr) parentToMergedChildren.set(parentBits, (arr = []));
+                arr.push(childTerm);
+            };
+
+            const recordMergedTerm = (bits, sourceMinterms) => {
+                let merged = mergedTermsByBits.get(bits);
+                if (!merged) {
+                    merged = { bits, minterms: new Set(sourceMinterms), used: false };
+                    mergedTermsByBits.set(bits, merged);
+                } else {
+                    for (const m of sourceMinterms) merged.minterms.add(m);
+                }
+                return merged;
+            };
+
+            for (let i = 0; i < sortedWeights.length - 1; i++) {
+                const currentGroup = termsByOneCount.get(sortedWeights[i]);
+                const nextGroup = termsByOneCount.get(sortedWeights[i + 1]);
+                if (!currentGroup || !nextGroup) continue;
+                for (const left of currentGroup) {
+                    for (const right of nextGroup) {
+                        const mergedBits = QuineMcCluskey.mergeIfOneBitApart(left.bits, right.bits);
+                        if (!mergedBits) continue;
+                        left.used = right.used = true;
+                        const combinedMinterms = new Set(left.minterms);
+                        for (const m of right.minterms) combinedMinterms.add(m);
+                        const child = recordMergedTerm(mergedBits, combinedMinterms);
+                        registerParentChild(left.bits, child);
+                        registerParentChild(right.bits, child);
+                    }
+                }
+            }
+
+            return {
+                mergedTermsNextLevel: Array.from(mergedTermsByBits.values()),
+                primeTermsThisLevel: implicants.filter(t => !t.used),
+                parentToMergedChildren
+            };
+        }
+
+        static buildImplicantLevels(initialImplicants) {
+            const levels = [];
+            let currentLevelImplicants = initialImplicants;
+            while (currentLevelImplicants.length) {
+                // One expansion step
+                const mergePass = QuineMcCluskey.mergeOneBitPass(currentLevelImplicants);
+                // Collect prime implicants from this level (terms that did not merge further)
+                const primeImplicantBits = new Set(mergePass.primeTermsThisLevel.map(t => t.bits));
+                levels.push({
+                    terms: currentLevelImplicants.slice().sort((a, b) => a.bits.localeCompare(b.bits)),
+                    primeSet: primeImplicantBits
+                });
+                if (!mergePass.mergedTermsNextLevel.length) break;
+                currentLevelImplicants = mergePass.mergedTermsNextLevel;
+            }
+            return levels;
+        }
+
+        // Extract minterms and don't-cares using the oracle. Verbose mode also constructs the initial implicant merge levels
+        // Output: { minterms, dontCares, variableCount }
+        static enumerateMintermsAndDontCares(numVariables, oracleFunction, verbose = true) {
+            const minterms = [];
+            const dontCares = [];
+
+            // High-performing path
+            if (!verbose) {
+                for (let weight = 0; weight <= numVariables; weight++) {
+                    for (const item of BinomialCoefficients.filterGenerator(numVariables, weight, oracleFunction)) {
+                        const valueNum = Number(item.value);
+                        if (item.oracleResponse === true) {
+                            minterms.push(valueNum);
+                        } else {
+                            dontCares.push(valueNum);
+                        }
+                    }
+                }
+                return { minterms, dontCares, variableCount: numVariables };
+            }
+
+            // Verbose path
+            const outputArea = document.getElementById('output');
+            outputArea.value = 'Number of variables: ' + numVariables + '\n\n';
+
+            const mintermRowsByWeight = new Map();
+            let previousWeightImplicants = null;
+            let previousRowByBitsMap = null;
+            const firstLevelMergedTermsByBits = new Map();
+
+            const recordFirstLevelMerged = (bits, sourceMinterms) => {
+                let term = firstLevelMergedTermsByBits.get(bits);
+                if (!term) {
+                    term = { bits, minterms: new Set(sourceMinterms), used: false };
+                    firstLevelMergedTermsByBits.set(bits, term);
+                } else {
+                    for (const m of sourceMinterms) {
+                        term.minterms.add(m);
+                    }
+                }
+            };
+
+            // Remove duplicate terms based on bit pattern
+            const dedupeTermsByBits = terms => {
+                const seen = new Set();
+                const unique = [];
+                for (const t of terms) {
+                    if (!seen.has(t.bits)) {
+                        seen.add(t.bits);
+                        unique.push(t);
+                    }
+                }
+                return unique;
+            };
+
+            // Generate implicants for each weight (number of 1s)
+            for (let weight = 0; weight <= numVariables; weight++) {
+                const weightImplicants = [];
+                const weightRows = [];
+                const rowByBitsMap = new Map();
+
+                for (const item of BinomialCoefficients.filterGenerator(numVariables, weight, oracleFunction)) {
+                    const bitPattern = item.bits;
+                    const numericValue = Number(item.value);
+                    if (item.oracleResponse === true) {
+                        minterms.push(numericValue);
+                    } else {
+                        dontCares.push(numericValue);
+                    }
+                    const isMinterm = (item.oracleResponse === true);
+                    const implicant = { bits: bitPattern, minterms: new Set(isMinterm ? [numericValue] : []), used: false };
+                    weightImplicants.push(implicant);
+                    const mintermRow = { bits: bitPattern, mintermVal: isMinterm ? numericValue : null, size2MergedChildren: [] };
+                    weightRows.push(mintermRow);
+
+                    rowByBitsMap.set(bitPattern, mintermRow);
+                }
+
+                // Try merging current weight with previous weight (diff of one 1)
+                if (previousWeightImplicants) {
+                    for (const previousImplicant of previousWeightImplicants) {
+                        for (const currentImplicant of weightImplicants) {
+                            const mergedBits = QuineMcCluskey.mergeIfOneBitApart(previousImplicant.bits, currentImplicant.bits);
+                            if (!mergedBits) continue;
+                            previousImplicant.used = currentImplicant.used = true;
+                            const unionMinterms = new Set(previousImplicant.minterms);
+                            for (const minterm of currentImplicant.minterms) {
+                                unionMinterms.add(minterm);
+                            }
+                            recordFirstLevelMerged(mergedBits, unionMinterms);
+                            const childTerm = { bits: mergedBits, minterms: unionMinterms, used: false };
+                            const previousRow = previousRowByBitsMap.get(previousImplicant.bits);
+                            if (previousRow) previousRow.size2MergedChildren.push(childTerm);
+                            const currentRow = rowByBitsMap.get(currentImplicant.bits);
+                            if (currentRow) currentRow.size2MergedChildren.push(childTerm);
+                        }
+                    }
+                }
+
+                previousWeightImplicants = weightImplicants;
+                previousRowByBitsMap = rowByBitsMap;
+                mintermRowsByWeight.set(weight, weightRows);
+            }
+
+            const firstLevelTerms = Array.from(firstLevelMergedTermsByBits.values()).sort((a, b) => a.bits.localeCompare(b.bits));
+            const implicantLevels = QuineMcCluskey.buildImplicantLevels(firstLevelTerms);
+
+            if (!implicantLevels.length) {
+                outputArea.value += 'No implicants produced.\n';
+                return { minterms, dontCares, variableCount: numVariables };
+            }
+
+            // Prime implicants after first merge from size 2 and size 4 levels
+            const primeSize2Set = implicantLevels[0]?.primeSet || new Set();
+            const firstSize2MergePass = QuineMcCluskey.mergeOneBitPass(firstLevelTerms);
+            const primeSize4Set = implicantLevels[1]?.primeSet || new Set();
+            const size2TermToSize4Children = firstSize2MergePass.parentToMergedChildren || new Map();
+
+            const formatImplicant = (term, primeSet) => {
+                if (!term) return '-';
+                const mintermList = Array.from(term.minterms).sort((a, b) => a - b);
+                const label = mintermList.length ? 'm(' + mintermList.join(',') + ')' : '-';
+                return label + '\t' + term.bits + (primeSet.has(term.bits) ? ' *' : '');
+            };
+
+            outputArea.value += 'Number of 1s\tMinterm\t0-Cube\tSize 2 Implicants\n';
+            const sortedWeights = Array.from(mintermRowsByWeight.keys()).sort((a, b) => a - b);
+            for (const weight of sortedWeights) {
+                const rows = mintermRowsByWeight.get(weight) || [];
+                let printedWeight = false;
+                for (const row of rows) {
+                    const size2Implicants = dedupeTermsByBits(row.size2MergedChildren);
+                    const linesPerRow = Math.max(1, size2Implicants.length);
+                    for (let i = 0; i < linesPerRow; i++) {
+                        outputArea.value +=
+                            (printedWeight ? '' : weight) + '\t' +
+                            (i === 0 ? (row.mintermVal !== null ? 'm' + row.mintermVal : '-') : '-') + '\t' +
+                            (i === 0 ? row.bits : '-') + '\t' +
+                            formatImplicant(size2Implicants[i] || null, primeSize2Set) + '\n';
+                        printedWeight = true;
+                    }
+                }
+            }
+            outputArea.value += '\n';
+
+            outputArea.value += 'Number of 1s\tMinterm\t0-Cube\tSize 2 Implicants\tSize 4 Implicants\n';
+            for (const weight of sortedWeights) {
+                const rows = mintermRowsByWeight.get(weight) || [];
+                let printedWeight = false;
+                for (const row of rows) {
+                    const size2Implicants = dedupeTermsByBits(row.size2MergedChildren);
+                    const linesPerRow = Math.max(1, size2Implicants.length);
+                    for (let i = 0; i < linesPerRow; i++) {
+                        const size2Imp = size2Implicants[i] || null;
+                        const size4Imp = size2Imp ? (size2TermToSize4Children.get(size2Imp.bits) || [])[0] || null : null;
+                        outputArea.value +=
+                            (printedWeight ? '' : weight) + '\t' +
+                            (i === 0 ? (row.mintermVal !== null ? 'm' + row.mintermVal : '-') : '-') + '\t' +
+                            (i === 0 ? row.bits : '-') + '\t' +
+                            formatImplicant(size2Imp, primeSize2Set) + '\t' +
+                            formatImplicant(size4Imp, primeSize4Set) + '\n';
+                        printedWeight = true;
+                    }
+                }
+            }
+            outputArea.value += '\n';
+
+            return { minterms, dontCares, variableCount: numVariables };
+        }
     }
 
-    // Error handling
     function error(e) {
         console.log('Erroring:', e);
         const outputArea = document.getElementById('output');
-        outputArea.value += `ERROR: ${e.message}\n`;
+        outputArea.value += 'ERROR: ' + e.message + '\n';
     }
 
-    // Run the oracle and display results
     function run() {
         const oldScript = document.getElementById('insert-oracle');
         if (oldScript) oldScript.remove();
@@ -282,7 +531,7 @@ function oracle(A, B, C, D) {
         const oracleHeader = window.oracle.toString().match(/\(([^)]+)\)/);
         const numVariables = oracleHeader ? oracleHeader[1].split(',').length : 0;
 
-        QuineMcCluskey.getMintermsAndDontCares(numVariables, window.oracle, true);
+        QuineMcCluskey.enumerateMintermsAndDontCares(numVariables, window.oracle, true);
     }
 
     console.error = function (e) {
