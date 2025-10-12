@@ -1,6 +1,8 @@
 # Boolean Expression Minimization
 
-**Canonical form:** A standard representation of Boolean expressions used to demonstrate equivalence between different forms.
+```console
+Canonical form: A standard representation of Boolean expressions used to demonstrate equivalence between different forms.
+```
 
 This browser-based tool simplifies Boolean expressions by converting them into their canonical form. It accepts a JavaScript oracle function, truth table, or DIMACS SAT instance (CNF or DNF) and produces a minimized JavaScript function, truth table, DIMACS DNF instance, or logic circuit diagram.
 
