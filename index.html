@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang='en'>
+
 <head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1'>
-    <title>Boolean Expression Minimization: Quine-McCluskey</title>
+	<meta charset='UTF-8'>
+	<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+	<link rel='icon' href='favicon.svg'>
+    <title>Expression Minify</title>
     <link href='lib/bootstrap.min.css' rel='stylesheet'>
     <link rel='stylesheet' href='lib/codemirror/lint.css'>
 	<link rel='stylesheet' href='lib/codemirror/codemirror.css'>
@@ -11,15 +13,26 @@
     <!-- <link rel='stylesheet' href='https://raw.githubusercontent.com/handsontable/handsontable/refs/tags/16.1.1/handsontable/dist/handsontable.min.css'> -->
     <link rel='stylesheet' href='lib/handsontable/handsontable.min.css'>
     <style>
-        input[type="checkbox"].form-check-input:checked {
+		body {
+			background-color: #151719;
+			font-family: 'Times New Roman', Times, serif;
+			padding: 20px;
+		}
+
+		p {
+			font-family: 'Times New Roman', Times, serif;
+			margin: 0;
+		}
+
+        input[type='checkbox'].form-check-input:checked {
             background-color: #b0b0b0 !important;
             border-color: #b0b0b0 !important;
         }
-        input[type="checkbox"].form-check-input:focus {
+        input[type='checkbox'].form-check-input:focus {
             box-shadow: 0 0 0 0.2rem rgba(176,176,176,0.25) !important;
             border-color: #b0b0b0 !important;
         }
-        input[type="checkbox"].form-check-input {
+        input[type='checkbox'].form-check-input {
             accent-color: #b0b0b0 !important;
         }
 
@@ -82,7 +95,7 @@
         }
 
         /* Checkboxes */
-        .handsontable input[type="checkbox"] {
+        .handsontable input[type='checkbox'] {
             accent-color: #FFCC00;
             filter: invert(0.9) hue-rotate(180deg);
         }
@@ -97,15 +110,15 @@
                 <label for='oracle-code' class='form-label display-6 fw-light text-body-emphasis' style='font-size: 1.2rem;'>Arbitrary Oracle Function</label>
                 <div class='btn-group rounded-top w-100' style='overflow-x: auto'>
                     <input type='radio' class='btn-check' name='inputOptions' id='inputCode' autocomplete='off' checked>
-                    <label class='btn btn-sm btn-secondary' for='inputCode' onclick="showInputTab('code')">Code</label>
+                    <label class='btn btn-sm btn-secondary' for='inputCode' onclick='showInputTab("code")'>Code</label>
 
                     <input type='radio' class='btn-check' name='inputOptions' id='inputTruthTable' autocomplete='off'>
-                    <label class='btn btn-sm btn-secondary' for='inputTruthTable' onclick="showInputTab('table')">Truth Table</label>
+                    <label class='btn btn-sm btn-secondary' for='inputTruthTable' onclick='showInputTab("table")'>Truth Table</label>
 
                     <input type='radio' class='btn-check' name='inputOptions' id='inputSATInstance' autocomplete='off'>
-                    <label class='btn btn-sm btn-secondary' for='inputSATInstance' onclick="showInputTab('sat')">SAT Instance</label>
+                    <label class='btn btn-sm btn-secondary' for='inputSATInstance' onclick='showInputTab("sat")'>SAT Instance</label>
                 </div>
-                <div id="inputTab-code">
+                <div id='inputTab-code'>
                     <textarea id='oracle-code' class='form-control' rows='18'>
 function oracle(A, B, C, D) {
     const t1 = (((D & 1) | ((B ^ 1) & D)) ^ 1);
@@ -125,24 +138,25 @@ function oracle(A, B, C, D) {
     return false;
 }</textarea>
                 </div>
-                <div id="inputTab-table" style="display:none;">
-                    <div class="my-2 d-flex align-items-center">
-                        <label for="variable-list" class="form-label mb-0 me-2 flex-shrink-0">Variables:</label>
-                        <input type="text" id="variable-list" class="form-control form-control-sm me-2" placeholder="A, B, C, D" value="A, B, C, D"
-                            onblur="updateTableVariableList()" onchange="updateTableVariableList()" style="max-width: 250px;">
-                        <div class="btn-group ms-auto me-2" role="group">
-                            <button type="button" class="btn btn-sm btn-secondary px-2" title="Fill selection with blank"
-                                onclick="fillTruthTableSelection('')">–</button>
-                            <button type="button" class="btn btn-sm btn-secondary px-2" title="Fill selection with 0"
-                                onclick="fillTruthTableSelection(0)">0</button>
-                            <button type="button" class="btn btn-sm btn-secondary px-2" title="Fill selection with 1"
-                                onclick="fillTruthTableSelection(1)">1</button>
+                <div id='inputTab-table' style='display:none;'>
+                    <div class='my-2 d-flex align-items-center'>
+                        <label for='variable-list' class='form-label mb-0 me-2 flex-shrink-0'>Variables:</label>
+                        <input type='text' id='variable-list' class='form-control form-control-sm me-2' placeholder='A, B, C, D' value='A, B, C, D'
+                            onblur='updateTableVariableList()' onchange='updateTableVariableList()' style='max-width: 150px;'>
+                        <div class='btn-group ms-auto me-2' role='group'>
+                            <button type='button' class='btn btn-sm btn-secondary px-2' title='Fill selection with blank'
+                                onclick='fillTruthTableSelection("")'>–</button>
+                            <button type='button' class='btn btn-sm btn-secondary px-2' title='Fill selection with 0'
+                                onclick='fillTruthTableSelection(0)'>0</button>
+                            <button type='button' class='btn btn-sm btn-secondary px-2' title='Fill selection with 1'
+                                onclick='fillTruthTableSelection(1)'>1</button>
                         </div>
-                        <button type="button" class="btn btn-sm btn-secondary" onclick="restoreInputTable()">Restore</button>
+                        <button type='button' class='btn btn-sm btn-secondary me-2' onclick='fillTruthTableRandom()'>Random</button>
+                        <button type='button' class='btn btn-sm btn-secondary' onclick='restoreInputTable()'>Restore</button>
                     </div>
                     <div id='oracle-table' class='w-100'></div>
                 </div>
-                <div id="inputTab-sat" style="display:none;">
+                <div id='inputTab-sat' style='display:none;'>
                     <textarea id='oracle-sat' class='form-control' rows='18'>
 c DIMACS CNF format
 p cnf 5 6
@@ -156,47 +170,61 @@ p cnf 5 6
                 </div>
             </div>
             <div class='col-12 col-lg-1 d-flex flex-column align-items-center justify-content-center'>
-                <button class='btn btn-secondary btn-sm w-100 mb-2 d-flex flex-column align-items-center justify-content-center' style='height: 5rem;' onclick='run()'>
+                <button id='runButton' class='btn btn-secondary btn-sm w-100 mb-2 d-flex flex-column align-items-center justify-content-center' style='height: 5rem;' onclick='run()'>
                     Run
-                    <span style="font-size: 1.5rem;">&rarr;</span>
+                    <span style='font-size: 1.5rem;'>&rarr;</span>
                 </button>
                 <button id='copyButton' class='btn btn-secondary btn-sm w-100 d-flex flex-column align-items-center justify-content-center' style='height: 5rem;' onclick='copyOutputToInput()' disabled>
                     Copy
-                    <span style="font-size: 1.5rem;">&larr;</span>
+                    <span style='font-size: 1.5rem;'>&larr;</span>
                 </button>
             </div>
             <div class='col-12 col-lg-5'>
                 <label for='output-code' class='form-label display-6 fw-light text-body-emphasis' style='font-size: 1.2rem;'>Minimal Logic (Quine-McCluskey)</label>
                 <div class='btn-group rounded-top w-100' style='overflow-x: auto'>
                     <input type='radio' class='btn-check' name='outputOptions' id='outputCode' autocomplete='off' checked>
-                    <label class='btn btn-sm btn-secondary' for='outputCode' onclick="showOutputTab('code')">Code</label>
+                    <label class='btn btn-sm btn-secondary' for='outputCode' onclick='showOutputTab("code")'>Code</label>
 
                     <input type='radio' class='btn-check' name='outputOptions' id='outputTruthTable' autocomplete='off'>
-                    <label class='btn btn-sm btn-secondary' for='outputTruthTable' onclick="showOutputTab('table')">Truth Table</label>
+                    <label class='btn btn-sm btn-secondary' for='outputTruthTable' onclick='showOutputTab("table")'>Truth Table</label>
 
                     <input type='radio' class='btn-check' name='outputOptions' id='outputSATInstance' autocomplete='off'>
-                    <label class='btn btn-sm btn-secondary' for='outputSATInstance' onclick="showOutputTab('sat')">SAT Instance</label>
+                    <label class='btn btn-sm btn-secondary' for='outputSATInstance' onclick='showOutputTab("sat")'>SAT Instance</label>
+
+                    <input type='radio' class='btn-check' name='outputOptions' id='outputCircuit' autocomplete='off'>
+                    <label class='btn btn-sm btn-secondary' for='outputCircuit' onclick='showOutputTab("circuit")'>Logic Circuit</label>
                 </div>
-                <div class="my-2 d-flex align-items-center" style="gap: 0.5rem;">
-                    <div class="form-check form-switch d-flex align-items-center mb-0" style="margin-bottom:0;">
-                        <input id="maintainVarsCheckbox" type="checkbox" class="form-check-input" style="margin-top:0;" checked>
-                        <label for="maintainVarsCheckbox" class="form-check-label mb-0 ms-2" style="font-size: 0.7rem;">Maintain the same variable list</label>
+                <div class='my-2 d-flex align-items-center' style='gap: 0.5rem;'>
+                    <div class='form-check form-switch d-flex align-items-center mb-0' style='margin-bottom:0;'>
+                        <input id='autoRunCheckbox' type='checkbox' class='form-check-input' style='margin-top:0;' checked
+                            onchange='checkAutoRunChanged()'>
+                        <label for='autoRunCheckbox' class='form-check-label mb-0 ms-2' style='font-size: 0.7rem;'>Run automatically</label>
+                    </div>
+                    <div class='form-check form-switch d-flex align-items-center mb-0' style='margin-bottom:0;'>
+                        <input id='maintainVarsCheckbox' type='checkbox' class='form-check-input' style='margin-top:0;' checked>
+                        <label for='maintainVarsCheckbox' class='form-check-label mb-0 ms-2' style='font-size: 0.7rem;'>Maintain the same variable list</label>
                     </div>
                 </div>
-                <div id="outputTab-code">
+                <div id='outputTab-code'>
                     <textarea id='output-code' class='form-control' rows='18' readonly></textarea>
                 </div>
-                <div id="outputTab-table" style="display:none;">
+                <div id='outputTab-table' style='display:none;'>
                     <div id='output-table' class='w-100'></div>
                 </div>
-                <div id="outputTab-sat" style="display:none;">
+                <div id='outputTab-sat' style='display:none;'>
                     <textarea id='output-sat' class='form-control' rows='18' readonly></textarea>
+                </div>
+                <div id='outputTab-circuit' style='display:none;'>
+                    <div class='p-2 rounded-3' style='border: 1px solid #444; background: #20252a;'>
+                        <canvas id='output-canvas' width='800' height='600' style='width: 100%; border-radius: 0.5rem; background: transparent; display: block;'></canvas>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </body>
 
+<script src='logicCircuitRenderer.js' type='text/javascript'></script>
 <!-- <script src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js' integrity='sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI' crossorigin='anonymous'></script> -->
 <script src='lib/bootstrap.bundle.min.js'></script>
 <script src='lib/codemirror/codemirror.js'></script>
@@ -205,10 +233,10 @@ p cnf 5 6
 <script src='lib/codemirror/jshint.js'></script>
 <script src='lib/codemirror/lint.js'></script>
 <script src='lib/codemirror/javascript-lint.js'></script>
-<!-- <script src="https://cdn.jsdelivr.net/npm/numbro@2.5.0/dist/numbro.min.js"></script> -->
-<script src="lib/handsontable/numbro.min.js"></script>
-<!-- <script src="https://cdn.jsdelivr.net/npm/numbro@2.5.0/dist/languages.min.js"></script> -->
-<script src="lib/handsontable/languages.min.js"></script>
+<!-- <script src='https://cdn.jsdelivr.net/npm/numbro@2.5.0/dist/numbro.min.js'></script> -->
+<script src='lib/handsontable/numbro.min.js'></script>
+<!-- <script src='https://cdn.jsdelivr.net/npm/numbro@2.5.0/dist/languages.min.js'></script> -->
+<script src='lib/handsontable/languages.min.js'></script>
 <!-- <script src='https://raw.githubusercontent.com/handsontable/handsontable/refs/tags/16.1.1/handsontable/dist/handsontable.min.js'></script> -->
 <script src='lib/handsontable/handsontable.js'></script>
 
@@ -569,6 +597,10 @@ p cnf 5 6
             }).sort((a, b) => a.pattern.localeCompare(b.pattern));
 
             const essentialExpanded = primeImplicantsExpanded.filter(pi => pi.essential);
+            
+            // Replace '&&' with '&' and '||' with '|'
+            const expression = essentialExpanded.length ? essentialExpanded.map(pi => '(' + pi.jsExpression + ')').join(' || ').replace(/&&/g, '&').replace(/\|\|/g, '|') : 'false';
+
             const jsExpression = essentialExpanded.length ? essentialExpanded.map(pi => pi.jsExpression).join(' || ') : 'false';
 
             // Also generate SAT instance in DIMACS DNF format
@@ -587,6 +619,7 @@ p cnf 5 6
                 clauses.join('\n');
 
             return {
+                expr: expression,
                 js: jsExpression,
                 sat: dnfCode
             };
@@ -695,7 +728,21 @@ p cnf 5 6
         }
     }
 
+    let runTimeout = null;
+
+    // Prevent multiple runs in quick succession
     function run() {
+        if (runTimeout) {
+            clearTimeout(runTimeout);
+            runTimeout = null;
+        }
+        runTimeout = setTimeout(() => {
+            runTimeout = null;
+            _run();
+        }, 50);
+    }
+
+    function _run() {
         if (!applyInputOracleScript()) return;
 
         // Extract the input argument names
@@ -704,14 +751,16 @@ p cnf 5 6
         const parsedNames = paramList.split(',').map(s => s.trim()).filter(Boolean);
         variableNames = (parsedNames.length ? parsedNames : QuineMcCluskey.defaultVarNames(parsedNames.length));
 
-        const { js: expression, sat: satCode } = QuineMcCluskey.solve(parsedNames.length, window.oracle, variableNames, true);
+        const { expr: expression, js: jsExpression, sat: satCode } = QuineMcCluskey.solve(parsedNames.length, window.oracle, variableNames, true);
+        circuitExpression = expression;
+        console.log('Minimized expression:', expression);
         outputSat.setValue(satCode);
 
         // Collect used vars from expression
         const identifierRegex = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
         const used = new Set();
         let match;
-        while ((match = identifierRegex.exec(expression)) !== null) {
+        while ((match = identifierRegex.exec(jsExpression)) !== null) {
             const name = match[0];
             // Filter to original vars (skip literals)
             if (variableNames.includes(name) && name !== 'true' && name !== 'false') {
@@ -726,7 +775,7 @@ p cnf 5 6
             usedVariableNames = variableNames.filter(v => used.has(v));
         }
         const funcArgs = usedVariableNames.join(',');
-        const funcBody = 'return ' + expression + ';';
+        const funcBody = 'return ' + jsExpression + ';';
         const finalFunction = 'function oracle(' + funcArgs + ') {\n  ' + funcBody + '\n}';
         outputCode.setValue(finalFunction);
         console.log('Minimized function:', finalFunction);
@@ -735,7 +784,11 @@ p cnf 5 6
         if (document.getElementById('outputTruthTable').checked) {
             setupOutputTable();
         }
+        if (document.getElementById('outputCircuit').checked) {
+            renderLogicCircuit();
+        }
 
+        document.getElementById('runButton').disabled = document.getElementById('autoRunCheckbox').checked;
         document.getElementById('copyButton').disabled = false;
     }
 </script>
@@ -759,6 +812,8 @@ p cnf 5 6
 
         if (tab === 'code' && editorCode) setTimeout(() => editorCode.refresh(), 0);
         if (tab === 'sat'  && editorSat)  setTimeout(() => editorSat.refresh(), 0);
+
+        document.getElementById('runButton').disabled = false;
     }
 
     function showOutputTab(tab) {
@@ -772,9 +827,25 @@ p cnf 5 6
             document.getElementById('outputTab-table').style.display = 'none';
         }
         document.getElementById('outputTab-sat').style.display = (tab === 'sat') ? '' : 'none';
+        if (tab === 'circuit') {
+            document.getElementById('outputTab-circuit').style.display = '';
+            renderLogicCircuit();
+        } else {
+            document.getElementById('outputTab-circuit').style.display = 'none';
+        }
 
         if (tab === 'code' && outputCode) setTimeout(() => outputCode.refresh(), 0);
         if (tab === 'sat' && outputSat) setTimeout(() => outputSat.refresh(), 0);
+    }
+
+    function checkAutoRunChanged() {
+        document.getElementById('runButton').disabled = document.getElementById('autoRunCheckbox').checked;
+        if (document.getElementById('autoRunCheckbox').checked) {
+            console.log('Auto-run enabled');
+            run();
+        } else {
+            console.log('Auto-run disabled');
+        }
     }
 
     // Setup CodeMirror editors
@@ -826,12 +897,13 @@ p cnf 5 6
 		outputCode = CodeMirror.fromTextArea(document.getElementById('output-code'), optionsOutputCode);
         outputSat = CodeMirror.fromTextArea(document.getElementById('output-sat'), optionsOutputSat);
 
-        // editor1.on('change', function (cMirror) {
-		// 	saveSamplerSettings();
-		// });
-		// editor2.on('change', function (cMirror) {
-		// 	saveSamplerSettings();
-		// });
+        editorCode.on('change', function (cMirror) {
+			if (document.getElementById('autoRunCheckbox').checked) run();
+		});
+
+        editorSat.on('change', function (cMirror) {
+            if (document.getElementById('autoRunCheckbox').checked) run();
+        });
 	}
 
     // Format the code editors
@@ -842,7 +914,7 @@ p cnf 5 6
         outputSat.autoFormatRange({ line: 0, ch: 0 }, { line: outputSat.lineCount() });
 	}
 
-    let truthTableValues = [], inputTruthTableVariableNames = [];
+    let truthTableValues = [], inputTruthTableVariableNames = [], circuitExpression = '';
 
     function updateTableVariableList() {
         const input = document.getElementById('variable-list');
@@ -862,6 +934,30 @@ p cnf 5 6
         setupTable(container, inputTruthTableVariableNames, false);
     }
 
+    function fillTruthTableRandom() {
+        const container = document.getElementById('oracle-table');
+        if (!applyInputOracleScript('code')) {
+            alert('Cannot setup table: Oracle function not defined');
+            return;
+        }
+        const numVars = inputTruthTableVariableNames.length;
+        const rowCount = 1 << numVars;
+        truthTableValues = Array.from({ length: rowCount }, () => Math.random() < 0.5 ? 0 : 1);
+        if (container._handsontableInstance) {
+            container._handsontableInstance.loadData(
+                Array.from({ length: rowCount }, (_, idx) => {
+                    const row = [];
+                    for (let bit = numVars - 1; bit >= 0; bit--) {
+                        row.push((idx >> bit) & 1);
+                    }
+                    row.push(truthTableValues[idx]);
+                    return row;
+                })
+            );
+        }
+        if (document.getElementById('autoRunCheckbox').checked) run();
+    }
+
     function restoreInputTable() {
         const input = document.getElementById('variable-list');
         if (variableNames.length) {
@@ -877,6 +973,7 @@ p cnf 5 6
             return;
         }
         setupTable(container, inputTruthTableVariableNames, false);
+        if (document.getElementById('autoRunCheckbox').checked) run();
     }
 
     function setupOutputTable() {
@@ -1021,7 +1118,7 @@ p cnf 5 6
                         if (colStart === resultCol && colEnd === resultCol) {
                             const r1 = Math.min(rowStart, rowEnd), r2 = Math.max(rowStart, rowEnd);
                             for (let r = r1; r <= r2; r++) {
-                            if (r === row) continue;
+                                if (r === row) continue;
                                 hotInstance.setDataAtCell(r, resultCol, display, 'bulkFill');
                                 truthTableValues[r] = val;
                             }
@@ -1032,11 +1129,37 @@ p cnf 5 6
                         hotInstance.setDataAtCell(row, col, display, 'internal');
                     }
                 }
+                if (document.getElementById('autoRunCheckbox').checked) run();
             };
         }
 
         const hot = new Handsontable(container, options);
         container._handsontableInstance = hot;
+    }
+
+    function renderLogicCircuit() {
+        const canvas = document.getElementById('output-canvas');
+        if (!canvas) return;
+        if (circuitExpression.length === 0) return;
+        const options = {
+            lineWidth: 2,
+            gateHeight: 40,
+            gateWidth: 40,
+            hGap: 60,
+            vGap: 50,
+            inputStub: 5,
+            labelOffsetX: 20,
+            labelPad: 20,
+            outputStub: 25,
+            wireJog: 18,
+            marginY: 32,
+            minFlat: 10,
+            font: '30px \'Times New Roman\', Times, serif',
+            errorFont: '30px \'Times New Roman\', Times, serif',
+            color: '#FFFFFF'
+        };
+        console.log('Rendering circuit:', circuitExpression);
+        LogicCircuitRenderer.render(circuitExpression, canvas, options);
     }
 
     function fillTruthTableSelection(value) {
@@ -1093,7 +1216,7 @@ p cnf 5 6
             const line = lines[i].trim();
             if (!line || line.startsWith('c')) continue;
             if (line.startsWith('p')) {
-                // Parse problem line: e.g. "p cnf 5 6"
+                // Parse problem line: e.g. 'p cnf 5 6'
                 const match = /^p\s+(cnf|dnf)\s+(\d+)\s+(\d+)/i.exec(line);
                 if (match) {
                     format = match[1].toLowerCase();
@@ -1170,7 +1293,6 @@ p cnf 5 6
 
     window.onload = function() {
         setupSampleCodeEditors();
-        //run();
     };
 </script>
 
