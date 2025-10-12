@@ -11,6 +11,17 @@
     <!-- <link rel='stylesheet' href='https://raw.githubusercontent.com/handsontable/handsontable/refs/tags/16.1.1/handsontable/dist/handsontable.min.css'> -->
     <link rel='stylesheet' href='lib/handsontable/handsontable.min.css'>
     <style>
+        input[type="checkbox"].form-check-input:checked {
+            background-color: #b0b0b0 !important;
+            border-color: #b0b0b0 !important;
+        }
+        input[type="checkbox"].form-check-input:focus {
+            box-shadow: 0 0 0 0.2rem rgba(176,176,176,0.25) !important;
+            border-color: #b0b0b0 !important;
+        }
+        input[type="checkbox"].form-check-input {
+            accent-color: #b0b0b0 !important;
+        }
 
         .CodeMirror {
             height: auto;
@@ -83,7 +94,7 @@
     <div class='container my-4 p-4 rounded-3 bg-body-tertiary'>
         <div class='row g-3 align-items-stretch'>
             <div class='col-12 col-lg-6'>
-                <label for='oracle-code' class='form-label display-6 fw-light text-body-emphasis' style='font-size: 1.2rem;'>Oracle Function</label>
+                <label for='oracle-code' class='form-label display-6 fw-light text-body-emphasis' style='font-size: 1.2rem;'>Arbitrary Oracle Function</label>
                 <div class='btn-group rounded-top w-100' style='overflow-x: auto'>
                     <input type='radio' class='btn-check' name='inputOptions' id='inputCode' autocomplete='off' checked>
                     <label class='btn btn-sm btn-secondary' for='inputCode' onclick="showInputTab('code')">Code</label>
@@ -155,7 +166,7 @@ p cnf 5 6
                 </button>
             </div>
             <div class='col-12 col-lg-5'>
-                <label for='output-code' class='form-label display-6 fw-light text-body-emphasis' style='font-size: 1.2rem;'>Minimal Logic</label>
+                <label for='output-code' class='form-label display-6 fw-light text-body-emphasis' style='font-size: 1.2rem;'>Minimal Logic (Quine-McCluskey)</label>
                 <div class='btn-group rounded-top w-100' style='overflow-x: auto'>
                     <input type='radio' class='btn-check' name='outputOptions' id='outputCode' autocomplete='off' checked>
                     <label class='btn btn-sm btn-secondary' for='outputCode' onclick="showOutputTab('code')">Code</label>
@@ -166,11 +177,17 @@ p cnf 5 6
                     <input type='radio' class='btn-check' name='outputOptions' id='outputSATInstance' autocomplete='off'>
                     <label class='btn btn-sm btn-secondary' for='outputSATInstance' onclick="showOutputTab('sat')">SAT Instance</label>
                 </div>
+                <div class="my-2 d-flex align-items-center" style="gap: 0.5rem;">
+                    <div class="form-check form-switch d-flex align-items-center mb-0" style="margin-bottom:0;">
+                        <input id="maintainVarsCheckbox" type="checkbox" class="form-check-input" style="margin-top:0;" checked>
+                        <label for="maintainVarsCheckbox" class="form-check-label mb-0 ms-2" style="font-size: 0.7rem;">Maintain the same variable list</label>
+                    </div>
+                </div>
                 <div id="outputTab-code">
                     <textarea id='output-code' class='form-control' rows='18' readonly></textarea>
                 </div>
                 <div id="outputTab-table" style="display:none;">
-                    <div id='output-table' class='mt-4 w-100'></div>
+                    <div id='output-table' class='w-100'></div>
                 </div>
                 <div id="outputTab-sat" style="display:none;">
                     <textarea id='output-sat' class='form-control' rows='18' readonly></textarea>
@@ -702,7 +719,12 @@ p cnf 5 6
             }
         }
         // Only keep used variable names
-        usedVariableNames = variableNames.filter(v => used.has(v));
+        const maintainVars = document.getElementById('maintainVarsCheckbox').checked;
+        if (maintainVars) {
+            usedVariableNames = variableNames.slice();
+        } else {
+            usedVariableNames = variableNames.filter(v => used.has(v));
+        }
         const funcArgs = usedVariableNames.join(',');
         const funcBody = 'return ' + expression + ';';
         const finalFunction = 'function oracle(' + funcArgs + ') {\n  ' + funcBody + '\n}';
