@@ -249,10 +249,14 @@ class LogicCircuitRenderer {
             const top = y - gateHeight / 2, bottom = y + gateHeight / 2;
             const curve = 0.35 * gateHeight;
 
+            const tipX = right + 0.18 * gateWidth;
+            const tipY = y;
+
             ctx.beginPath();
             ctx.moveTo(left, top);
             ctx.lineTo(left + flat, top);
-            ctx.arc(left + flat, y, r, -Math.PI / 2, Math.PI / 2, false);
+            ctx.quadraticCurveTo(right - r * 0.25, top, tipX, tipY);
+            ctx.quadraticCurveTo(right - r * 0.25, bottom, left + flat, bottom);
             ctx.lineTo(left, bottom);
             ctx.quadraticCurveTo(left + curve, y, left, top);
             ctx.closePath();
@@ -261,11 +265,11 @@ class LogicCircuitRenderer {
             const backX = left + 0.375 * curve;
             const in1 = { x: left - inputStub, y: y - gateHeight / 4 };
             const in2 = { x: left - inputStub, y: y + gateHeight / 4 };
-            const out = { x: right + inputStub, y };
+            const out = { x: tipX + inputStub, y };
 
             drawLine(backX, y - gateHeight / 4, left, y - gateHeight / 4); drawLine(left, y - gateHeight / 4, in1.x, in1.y);
             drawLine(backX, y + gateHeight / 4, left, y + gateHeight / 4); drawLine(left, y + gateHeight / 4, in2.x, in2.y);
-            drawLine(right, y, out.x, out.y);
+            drawLine(tipX, y, out.x, out.y);
 
             return { in1, in2, out };
         };
