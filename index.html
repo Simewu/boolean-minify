@@ -120,7 +120,14 @@
                 </div>
                 <div id='inputTab-code'>
                     <textarea id='oracle-code' class='form-control' rows='18'>
-function oracle(A, B, C, D) {
+function oracle(A, B, C, D, E) {
+    // Wikipedia Example
+    const n = [A, B, C, D].reduce((index, bit) => index * 2 + (bit ? 1 : 0), 0); // Pack boolean inputs into an integer index
+    if ([4, 8, 10, 11, 12, 15].includes(n)) return true;
+    if ([9, 14].includes(n)) return undefined; // Don't cares
+    return false;
+  
+  	// Another example
     const t1 = (((D & 1) | ((B ^ 1) & D)) ^ 1);
     const t2 = (A & (B | (B ^ 1)));
     const t3 = (A & (C ^ 1));
@@ -130,12 +137,6 @@ function oracle(A, B, C, D) {
     const t7 = (((B & 0) | ((B ^ 1) & 0)) & D);
     const value = t1 | t2 | t3 | t4 | t5 | t6 | t7;
     return !!value;
-
-    // Wikipedia Example
-    const n = [A, B, C, D].reduce((index, bit) => index * 2 + (bit ? 1 : 0), 0); // Pack boolean inputs into an integer index
-    if ([4, 8, 10, 11, 12, 15].includes(n)) return true;
-    if ([9, 14].includes(n)) return undefined; // Don't cares
-    return false;
 }</textarea>
                 </div>
                 <div id='inputTab-table' style='display:none;'>
@@ -180,8 +181,11 @@ p cnf 5 6
                 </button>
             </div>
             <div class='col-12 col-lg-5'>
-                <label for='output-code' class='form-label display-6 fw-light text-body-emphasis' style='font-size: 1.2rem;'>Minimal Logic (Quine-McCluskey)</label>
+                <label for='output-code' class='form-label display-6 fw-light text-body-emphasis' style='font-size: 1.2rem;'>Minimal Logic (Karnaugh Map)</label>
                 <div class='btn-group rounded-top w-100' style='overflow-x: auto'>
+                    <input type='radio' class='btn-check' name='outputOptions' id='outputCircuit' autocomplete='off'>
+                    <label class='btn btn-sm btn-secondary' for='outputCircuit' onclick='showOutputTab("circuit")'>Logic Circuit</label>
+
                     <input type='radio' class='btn-check' name='outputOptions' id='outputCode' autocomplete='off' checked>
                     <label class='btn btn-sm btn-secondary' for='outputCode' onclick='showOutputTab("code")'>Code</label>
 
@@ -190,9 +194,6 @@ p cnf 5 6
 
                     <input type='radio' class='btn-check' name='outputOptions' id='outputSATInstance' autocomplete='off'>
                     <label class='btn btn-sm btn-secondary' for='outputSATInstance' onclick='showOutputTab("sat")'>SAT Instance</label>
-
-                    <input type='radio' class='btn-check' name='outputOptions' id='outputCircuit' autocomplete='off'>
-                    <label class='btn btn-sm btn-secondary' for='outputCircuit' onclick='showOutputTab("circuit")'>Logic Circuit</label>
                 </div>
                 <div class='my-2 d-flex align-items-center' style='gap: 0.5rem;'>
                     <div class='form-check form-switch d-flex align-items-center mb-0' style='margin-bottom:0;'>
@@ -201,7 +202,8 @@ p cnf 5 6
                         <label for='autoRunCheckbox' class='form-check-label mb-0 ms-2' style='font-size: 0.7rem;'>Run automatically</label>
                     </div>
                     <div class='form-check form-switch d-flex align-items-center mb-0' style='margin-bottom:0;'>
-                        <input id='maintainVarsCheckbox' type='checkbox' class='form-check-input' style='margin-top:0;' checked>
+                        <input id='maintainVarsCheckbox' type='checkbox' class='form-check-input' style='margin-top:0;' checked
+                            onchange='if(document.getElementById("autoRunCheckbox").checked) run();'>
                         <label for='maintainVarsCheckbox' class='form-check-label mb-0 ms-2' style='font-size: 0.7rem;'>Maintain the same variable list</label>
                     </div>
                 </div>
