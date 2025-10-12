@@ -8,7 +8,8 @@
     <link rel='stylesheet' href='lib/codemirror/lint.css'>
 	<link rel='stylesheet' href='lib/codemirror/codemirror.css'>
 	<link rel='stylesheet' href='lib/codemirror/material-darker.css'>
-    <link rel='stylesheet' href='lib/handsontable/handsontable.full.min.css'>
+    <!-- <link rel='stylesheet' href='https://raw.githubusercontent.com/handsontable/handsontable/refs/tags/16.1.1/handsontable/dist/handsontable.min.css'> -->
+    <link rel='stylesheet' href='lib/handsontable/handsontable.min.css'>
     <style>
 
         .CodeMirror {
@@ -83,7 +84,6 @@
         <div class='row g-3 align-items-stretch'>
             <div class='col-12 col-lg-6'>
                 <label for='oracle-code' class='form-label display-6 fw-light text-body-emphasis' style='font-size: 1.2rem;'>Oracle Function</label>
-                
                 <div class='btn-group rounded-top w-100' style='overflow-x: auto'>
                     <input type='radio' class='btn-check' name='inputOptions' id='inputCode' autocomplete='off' checked>
                     <label class='btn btn-sm btn-secondary' for='inputCode' onclick="showInputTab('code')">Code</label>
@@ -133,20 +133,48 @@ function oracle(A, B, C, D) {
                 </div>
                 <div id="inputTab-sat" style="display:none;">
                     <textarea id='oracle-sat' class='form-control' rows='18'>
-1 2 3 4 5
--1 -2 -3 -4 -5
-1 -2
-3 -4 5
-5
--1 2</textarea>
+c DIMACS CNF format
+p cnf 5 6
+1 2 3 4 5 0
+-1 -2 -3 -4 -5 0
+1 -2 0
+3 -4 5 0
+5 0
+-1 2 0
+</textarea>
                 </div>
             </div>
-            <div class='col-12 col-lg-1 d-flex align-items-center justify-content-center'>
-                <button class='btn btn-secondary btn-sm w-100' style='height: 5rem;' onclick='run()'>Run</button>
+            <div class='col-12 col-lg-1 d-flex flex-column align-items-center justify-content-center'>
+                <button class='btn btn-secondary btn-sm w-100 mb-2 d-flex flex-column align-items-center justify-content-center' style='height: 5rem;' onclick='run()'>
+                    Run
+                    <span style="font-size: 1.5rem;">&rarr;</span>
+                </button>
+                <button id='copyButton' class='btn btn-secondary btn-sm w-100 d-flex flex-column align-items-center justify-content-center' style='height: 5rem;' onclick='copyOutputToInput()' disabled>
+                    Copy
+                    <span style="font-size: 1.5rem;">&larr;</span>
+                </button>
             </div>
             <div class='col-12 col-lg-5'>
                 <label for='output-code' class='form-label display-6 fw-light text-body-emphasis' style='font-size: 1.2rem;'>Minimal Logic</label>
-                <textarea id='output-code' class='form-control' rows='18'></textarea>
+                <div class='btn-group rounded-top w-100' style='overflow-x: auto'>
+                    <input type='radio' class='btn-check' name='outputOptions' id='outputCode' autocomplete='off' checked>
+                    <label class='btn btn-sm btn-secondary' for='outputCode' onclick="showOutputTab('code')">Code</label>
+
+                    <input type='radio' class='btn-check' name='outputOptions' id='outputTruthTable' autocomplete='off'>
+                    <label class='btn btn-sm btn-secondary' for='outputTruthTable' onclick="showOutputTab('table')">Truth Table</label>
+
+                    <input type='radio' class='btn-check' name='outputOptions' id='outputSATInstance' autocomplete='off'>
+                    <label class='btn btn-sm btn-secondary' for='outputSATInstance' onclick="showOutputTab('sat')">SAT Instance</label>
+                </div>
+                <div id="outputTab-code">
+                    <textarea id='output-code' class='form-control' rows='18' readonly></textarea>
+                </div>
+                <div id="outputTab-table" style="display:none;">
+                    <div id='output-table' class='w-100'></div>
+                </div>
+                <div id="outputTab-sat" style="display:none;">
+                    <textarea id='output-sat' class='form-control' rows='18' readonly></textarea>
+                </div>
             </div>
         </div>
     </div>
@@ -160,7 +188,12 @@ function oracle(A, B, C, D) {
 <script src='lib/codemirror/jshint.js'></script>
 <script src='lib/codemirror/lint.js'></script>
 <script src='lib/codemirror/javascript-lint.js'></script>
-<script src='lib/handsontable/handsontable.full.min.js'></script>
+<!-- <script src="https://cdn.jsdelivr.net/npm/numbro@2.5.0/dist/numbro.min.js"></script> -->
+<script src="lib/handsontable/numbro.min.js"></script>
+<!-- <script src="https://cdn.jsdelivr.net/npm/numbro@2.5.0/dist/languages.min.js"></script> -->
+<script src="lib/handsontable/languages.min.js"></script>
+<!-- <script src='https://raw.githubusercontent.com/handsontable/handsontable/refs/tags/16.1.1/handsontable/dist/handsontable.min.js'></script> -->
+<script src='lib/handsontable/handsontable.js'></script>
 
 <script>
     'use strict';
@@ -520,7 +553,26 @@ function oracle(A, B, C, D) {
 
             const essentialExpanded = primeImplicantsExpanded.filter(pi => pi.essential);
             const jsExpression = essentialExpanded.length ? essentialExpanded.map(pi => pi.jsExpression).join(' || ') : 'false';
-            return jsExpression;
+
+            // Also generate SAT instance in DIMACS CNF format
+            const varCount = variableNames.length;
+            const clauses = essentialExpanded.map(pi => {
+                const lits = [];
+                for (let i = 0; i < pi.pattern.length; i++) {
+                    if (pi.pattern[i] === '-') continue;
+                    const idx = i + 1;
+                    lits.push(pi.pattern[i] === '1' ? idx : -idx);
+                }
+                return lits.join(' ') + ' 0';
+            });
+            const satCode =
+                `p cnf ${varCount} ${clauses.length}\n` +
+                clauses.join('\n');
+
+            return {
+                js: jsExpression,
+                sat: satCode
+            };
         }
     }
 
@@ -569,8 +621,22 @@ function oracle(A, B, C, D) {
         return true;
     }
 
+    function copyOutputToInput() {
+        editorCode.setValue(outputCode.getValue());
+        variableNames = usedVariableNames.slice();
+
+        if (document.getElementById('inputCode').checked) {
+            showInputTab('code');
+        } else if (document.getElementById('inputTruthTable').checked) {
+            showInputTab('table');
+            truthTableVariableNames = variableNames.slice();
+            restoreTable();
+        } else if (document.getElementById('inputSATInstance').checked) {
+            showInputTab('sat');
+        }
+    }
+
     function run() {
-        editorSat.setValue('');
         if (!applyOracleScript()) return;
 
         // Extract the input argument names
@@ -579,7 +645,8 @@ function oracle(A, B, C, D) {
         const parsedNames = paramList.split(',').map(s => s.trim()).filter(Boolean);
         variableNames = (parsedNames.length ? parsedNames : QuineMcCluskey.defaultVarNames(parsedNames.length));
 
-        const expression = QuineMcCluskey.solve(parsedNames.length, window.oracle, variableNames, true);
+        const { js: expression, sat: satCode } = QuineMcCluskey.solve(parsedNames.length, window.oracle, variableNames, true);
+        outputSat.setValue(satCode);
 
         // Collect used vars from expression
         const identifierRegex = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
@@ -597,16 +664,17 @@ function oracle(A, B, C, D) {
         const funcArgs = usedVariableNames.join(',');
         const funcBody = 'return ' + expression + ';';
         const finalFunction = 'function oracle(' + funcArgs + ') {\n  ' + funcBody + '\n}';
-        editorOutput.setValue(finalFunction);
+        outputCode.setValue(finalFunction);
         console.log('Minimized function:', finalFunction);
-    
+
+        document.getElementById('copyButton').disabled = false;
     }
 </script>
 
 <script id='insert-oracle' type='text/javascript'></script>
 
 <script>
-    let editorCode, editorSat, editorOutput;
+    let editorCode, editorSat, outputCode, outputSat;
 
     function showInputTab(tab) {
         document.getElementById('inputTab-code').style.display = (tab === 'code') ? '' : 'none';
@@ -619,40 +687,68 @@ function oracle(A, B, C, D) {
             document.getElementById('inputTab-table').style.display = 'none';
         }
         document.getElementById('inputTab-sat').style.display = (tab === 'sat') ? '' : 'none';
+
+        if (tab === 'code' && editorCode) setTimeout(() => editorCode.refresh(), 0);
+        if (tab === 'sat'  && editorSat)  setTimeout(() => editorSat.refresh(), 0);
+    }
+
+    function showOutputTab(tab) {
+        document.getElementById('outputTab-code').style.display = (tab === 'code') ? '' : 'none';
+        document.getElementById('outputTab-table').style.display = (tab === 'table') ? '' : 'none';
+        document.getElementById('outputTab-sat').style.display = (tab === 'sat') ? '' : 'none';
+
+        if (tab === 'code' && outputCode) setTimeout(() => outputCode.refresh(), 0);
+        if (tab === 'sat' && outputSat) setTimeout(() => outputSat.refresh(), 0);
     }
 
     // Setup CodeMirror editors
     function setupSampleCodeEditors() {
-		const options = {
-			autofocus: false,
-			autohint: true,
-			dragDrop: false,
-			lineNumbers: true,
-			lineWrapping: true,
-			lineWiseCopyCut: true,
+        const optionsOracleCode = {
+            autofocus: false,
+            autohint: true,
+            dragDrop: false,
+            lineNumbers: true,
+            lineWrapping: true,
+            lineWiseCopyCut: true,
 
-			lint: {
-				esversion: 11
-			},
-			gutters: ['CodeMirror-lint-markers'],
-			lintOnChange: true,
+            lint: {
+                esversion: 11
+            },
+            gutters: ['CodeMirror-lint-markers'],
+            lintOnChange: true,
 
-			mode: {
-				name: 'javascript',
-				globalVars: true
-			},
-			readOnly: false,
-			theme: 'material-darker',
-			undoDepth: 1000,
+            mode: {
+                name: 'javascript',
+                globalVars: true
+            },
+            readOnly: false,
+            theme: 'material-darker',
+            undoDepth: 1000,
 
-			matchBrackets: true,
-			highlightSelectionMatches: true,
-			autoCloseBrackets: true
-		};
+            matchBrackets: true,
+            highlightSelectionMatches: true,
+            autoCloseBrackets: true
+        };
 
-		editorCode = CodeMirror.fromTextArea(document.getElementById('oracle-code'), options);
-        editorSat = CodeMirror.fromTextArea(document.getElementById('oracle-sat'), options);
-		editorOutput = CodeMirror.fromTextArea(document.getElementById('output-code'), options);
+        const optionsSAT = {
+            autofocus: false,
+            autohint: true,
+            dragDrop: false,
+            lineNumbers: true,
+            lineWrapping: true,
+            lineWiseCopyCut: true,
+            readOnly: false,
+            theme: 'material-darker',
+            undoDepth: 1000
+        };
+
+        const optionsOutputCode = { ...optionsOracleCode, readOnly: true };
+        const optionsOutputSat = { ...optionsSAT, readOnly: true };
+
+		editorCode = CodeMirror.fromTextArea(document.getElementById('oracle-code'), optionsOracleCode);
+        editorSat = CodeMirror.fromTextArea(document.getElementById('oracle-sat'), optionsSAT);
+		outputCode = CodeMirror.fromTextArea(document.getElementById('output-code'), optionsOutputCode);
+        outputSat = CodeMirror.fromTextArea(document.getElementById('output-sat'), optionsOutputSat);
 
         // editor1.on('change', function (cMirror) {
 		// 	saveSamplerSettings();
@@ -666,7 +762,8 @@ function oracle(A, B, C, D) {
 	function formatCodeEditors() {
 		editorCode.autoFormatRange({ line: 0, ch: 0 }, { line: editorCode.lineCount() });
         editorSat.autoFormatRange({ line: 0, ch: 0 }, { line: editorSat.lineCount() });
-		editorOutput.autoFormatRange({ line: 0, ch: 0 }, { line: editorOutput.lineCount() });
+		outputCode.autoFormatRange({ line: 0, ch: 0 }, { line: outputCode.lineCount() });
+        outputSat.autoFormatRange({ line: 0, ch: 0 }, { line: outputSat.lineCount() });
 	}
 
     let truthTableValues = [], truthTableVariableNames = [];
@@ -703,6 +800,7 @@ function oracle(A, B, C, D) {
         }
 
         const container = document.getElementById('oracle-table');
+        container.classList.add('ht-theme-main');
 
         if (container._handsontableInstance) {
             container._handsontableInstance.destroy();
@@ -819,14 +917,14 @@ function oracle(A, B, C, D) {
                             const r1 = Math.min(rowStart, rowEnd), r2 = Math.max(rowStart, rowEnd);
                             for (let r = r1; r <= r2; r++) {
                             if (r === row) continue;
-                            hotInstance.setDataAtCell(r, resultCol, display, 'bulkFill');
-                            truthTableValues[r] = val;
+                                hotInstance.setDataAtCell(r, resultCol, display, 'bulkFill');
+                                truthTableValues[r] = val;
                             }
                         }
                     }
 
                     if (hotInstance.getDataAtCell(row, col) !== display) {
-                    hotInstance.setDataAtCell(row, col, display, 'internal');
+                        hotInstance.setDataAtCell(row, col, display, 'internal');
                     }
                 }
             },
@@ -875,6 +973,73 @@ function oracle(A, B, C, D) {
     return undefined;
 }`;
     }
+
+function generateSATInstanceCode() {
+    // Read raw SAT text
+    const raw = editorSat.getValue();
+    const lines = raw.split(/\r?\n/);
+
+    // Parse, supporting comments and optional 'p cnf' header.
+    let declaredVars = 0, declaredClauses = 0;
+    const clauses = [];
+    let maxVar = 0;
+
+    for (const line0 of lines) {
+        const line = line0.trim();
+        if (!line || line.startsWith('c')) continue; // comment or blank
+        if (line.startsWith('p')) {
+            // e.g., "p cnf 5 10"
+            const m = /^p\s+cnf\s+(\d+)\s+(\d+)/i.exec(line);
+            if (m) {
+                declaredVars = parseInt(m[1], 10);
+                declaredClauses = parseInt(m[2], 10);
+            }
+            continue;
+        }
+        // Accumulate integers until a trailing 0 ends the clause
+        const nums = line.split(/\s+/).map(n => parseInt(n, 10)).filter(n => !Number.isNaN(n));
+        if (!nums.length) continue;
+
+        let clause = [];
+        for (const lit of nums) {
+            if (lit === 0) {
+                if (clause.length) {
+                    clauses.push(clause);
+                    clause = [];
+                }
+                continue;
+            }
+            maxVar = Math.max(maxVar, Math.abs(lit));
+            clause.push(lit);
+        }
+        // In case a line ends without 0 but we still have lits, treat as full clause line
+        if (clause.length) clauses.push(clause);
+    }
+
+    const varCount = declaredVars || maxVar;
+    if (!varCount) {
+        throw new Error('SAT instance has no variables.');
+    }
+
+    // Build param list using default variable names A, B, C, ...
+    const paramNames = QuineMcCluskey.defaultVarNames(varCount);
+
+    // Turn every clause into a JS OR of literals; AND all clauses.
+    const jsClauses = clauses.map(clause => {
+        const ors = clause.map(lit => {
+            const idx = Math.abs(lit) - 1; // DIMACS is 1-based
+            const v = paramNames[idx];
+            return lit > 0 ? `${v}` : `!${v}`;
+        });
+        // Empty clause = unsatisfiable
+        return ors.length ? `(${ors.join(' || ')})` : `(false)`;
+    });
+    const body = jsClauses.length ? jsClauses.join(' && ') : 'true';
+
+    return `function oracle(${paramNames.join(', ')}) {
+    return ${body};
+}`;
+}
 
     window.onload = function() {
         setupSampleCodeEditors();
