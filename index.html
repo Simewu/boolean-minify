@@ -596,7 +596,7 @@ function oracle(A, B, C, D) {
         document.getElementById('inputTab-code').style.display = (tab === 'code') ? '' : 'none';
         if (tab === 'table') {
             document.getElementById('inputTab-table').style.display = '';
-            if (!truthTableVariableNames.length) {
+            if (!truthTableVariableNames.length) { // First time setup
                 restoreTable();
             }
         } else {
@@ -767,8 +767,9 @@ function oracle(A, B, C, D) {
     function generateTruthTableCode() {
         // Args match truthTableVariableNames
         const varList = truthTableVariableNames.join(', ');
+        const valuesArray = JSON.stringify(truthTableValues);
         return `function oracle(${varList}) {
-    const values = (typeof window !== 'undefined' && window.truthTableValues) ? window.truthTableValues : [];
+    const values = ${valuesArray};
     const index = [${truthTableVariableNames.join(', ')}].reduce((acc, val) => acc * 2 + (val ? 1 : 0), 0);
     const v = values[index];
     if (v === 1 || v === '1') return true;
