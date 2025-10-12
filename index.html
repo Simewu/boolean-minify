@@ -8,11 +8,63 @@
     <link rel='stylesheet' href='lib/codemirror/lint.css'>
 	<link rel='stylesheet' href='lib/codemirror/codemirror.css'>
 	<link rel='stylesheet' href='lib/codemirror/material-darker.css'>
+    <link rel='stylesheet' href='lib/handsontable/handsontable.full.min.css'>
     <style>
 
         .CodeMirror {
             height: auto;
             font-size: 0.7rem;
+        }
+
+        #oracle-table {
+            background: #0f1113;
+            border-radius: 0.5rem;
+        }
+
+        /* Surfaces */
+        #oracle-table .handsontable .ht_master,
+        #oracle-table .handsontable .ht_clone_left,
+        #oracle-table .handsontable .ht_clone_top,
+        #oracle-table .handsontable .ht_clone_top_left_corner {
+            background: #292E33 !important;
+        }
+
+        /* Cells */
+        #oracle-table .handsontable td,
+        #oracle-table .handsontable th {
+            background-color: #292E33 !important;
+            border-color: #3A4046 !important;
+        }
+
+        /* Text */
+        #oracle-table .handsontable td {
+            color: #EEFFFF !important;
+            font-size: 0.7rem;
+        }
+        #oracle-table .handsontable th {
+            color: #FFFFFF !important;
+            font-weight: 500;
+            font-size: 0.7rem;
+        }
+
+        /* Selection */
+        #oracle-table .handsontable .current {
+            box-shadow: inset 0 0 0 1px #FFCC00 !important;
+        }
+        #oracle-table .handsontable .area {
+            background: rgba(97, 97, 97, 0.2) !important;
+        }
+
+        /* Highlighted headers */
+        #oracle-table .handsontable th.ht__highlight,
+        #oracle-table .handsontable th.ht__active_highlight {
+            color: #EEFFFF !important;
+        }
+
+        /* Checkboxes */
+        #oracle-table .handsontable input[type="checkbox"] {
+            accent-color: #FFCC00;
+            filter: invert(0.9) hue-rotate(180deg);
         }
     </style>
 
@@ -24,16 +76,18 @@
             <div class='col-12 col-lg-6'>
                 <label for='oracle-code' class='form-label display-6 fw-light text-body-emphasis' style='font-size: 1.2rem;'>Oracle Function</label>
                 
-                <!-- <div class='btn-group btn-group-toggle rounded-top w-100' style='overflow-x: auto' data-toggle='buttons'>
-                    <label class='btn btn-secondary'>
-                        <input type='radio' name='compressionOptions' id='compressionNone' autocomplete='off' onchange=''>None
-                    </label>
-                    <label class='btn btn-secondary'>
-                        <input type='radio' name='compressionOptions' id='compressionUTF16' autocomplete='off' onchange='' checked>Code
-                    </label>
-                </div> -->
+                <div class='btn-group rounded-top w-100' style='overflow-x: auto'>
+                    <input type='radio' class='btn-check' name='inputOptions' id='inputCode' autocomplete='off' checked>
+                    <label class='btn btn-sm btn-secondary' for='inputCode' onclick="showInputTab('code')">Code</label>
 
-                <textarea id='oracle-code' class='form-control' rows='18'>
+                    <input type='radio' class='btn-check' name='inputOptions' id='inputTruthTable' autocomplete='off'>
+                    <label class='btn btn-sm btn-secondary' for='inputTruthTable' onclick="showInputTab('table')">Truth Table</label>
+
+                    <input type='radio' class='btn-check' name='inputOptions' id='inputSATInstance' autocomplete='off'>
+                    <label class='btn btn-sm btn-secondary' for='inputSATInstance' onclick="showInputTab('sat')">SAT Instance</label>
+                </div>
+                <div id="inputTab-code">
+                    <textarea id='oracle-code' class='form-control' rows='18'>
 function oracle(A, B, C, D) {
     const t1 = (((D & 1) | ((B ^ 1) & D)) ^ 1);
     const t2 = (A & (B | (B ^ 1)));
@@ -51,9 +105,28 @@ function oracle(A, B, C, D) {
     if ([9, 14].includes(n)) return undefined; // Don't cares
     return false;
 }</textarea>
+                </div>
+                <div id="inputTab-table" style="display:none;">
+                    <div class="my-2 d-flex align-items-center">
+                        <label for="variable-list" class="form-label mb-0 me-2 flex-shrink-0">Variables:</label>
+                        <input type="text" id="variable-list" class="form-control form-control-sm me-2" placeholder="A, B, C, D" value="A, B, C, D"
+                            onblur="updateTableVariableList()" onchange="updateTableVariableList()" style="max-width: 250px;">
+                        <button type="button" class="btn btn-sm btn-secondary ms-auto" onclick="restoreTable()">Restore Table</button>
+                    </div>
+                    <div id='oracle-table' class='w-100'></div>
+                </div>
+                <div id="inputTab-sat" style="display:none;">
+                    <textarea id='oracle-sat' class='form-control' rows='18'>
+1 2 3 4 5
+-1 -2 -3 -4 -5
+1 -2
+3 -4 5
+5
+-1 2</textarea>
+                </div>
             </div>
             <div class='col-12 col-lg-1 d-flex align-items-center justify-content-center'>
-                <button class='btn btn-secondary btn-sm w-100 fw-light text-body-emphasis' onclick='run()'>Run</button>
+                <button class='btn btn-secondary btn-sm w-100' style='height: 5rem;' onclick='run()'>Run</button>
             </div>
             <div class='col-12 col-lg-5'>
                 <label for='output-code' class='form-label display-6 fw-light text-body-emphasis' style='font-size: 1.2rem;'>Minimal Logic</label>
@@ -71,8 +144,12 @@ function oracle(A, B, C, D) {
 <script src='lib/codemirror/jshint.js'></script>
 <script src='lib/codemirror/lint.js'></script>
 <script src='lib/codemirror/javascript-lint.js'></script>
+<script src='lib/handsontable/handsontable.full.min.js'></script>
+
 <script>
     'use strict';
+
+    let variableNames = [], usedVariableNames = [];
 
     class BinomialCoefficients {
         static pascalTableCache = new Map();
@@ -441,14 +518,26 @@ function oracle(A, B, C, D) {
         error(e);
     };
 
-    function run() {
-        editors[1].setValue('');
-
+    function applyOracleScript(type) {
         const oldScript = document.getElementById('insert-oracle');
         if (oldScript) oldScript.remove();
 
+        if (type === undefined) {
+            if (document.getElementById('inputCode').checked) type = 'code';
+            else if (document.getElementById('inputTruthTable').checked) type = 'table';
+            else if (document.getElementById('inputSATInstance').checked) type = 'sat';
+            else type = 'code';
+        }
+
         const script = document.createElement('script');
-        const oracleCode = editors[0].getValue();
+        let oracleCode = '';
+        if (type === 'code') {
+            oracleCode = editorCode.getValue();
+        } else if (type === 'table') {
+            oracleCode = generateTruthTableCode();
+        } else if (type === 'sat') {
+            oracleCode = generateSATInstanceCode();
+        }
         script.id = 'insert-oracle';
         script.textContent = oracleCode;
         script.onerror = (e) => {
@@ -459,14 +548,20 @@ function oracle(A, B, C, D) {
 
         if (typeof window.oracle !== 'function') {
             error(new Error('Oracle function not defined'));
-            return;
+            return false;
         }
+        return true;
+    }
+
+    function run() {
+        editorSat.setValue('');
+        if (!applyOracleScript()) return;
 
         // Extract the input argument names
         const oracleHeader = window.oracle.toString().match(/\(([^)]*)\)/);
         const paramList = oracleHeader ? oracleHeader[1] : '';
         const parsedNames = paramList.split(',').map(s => s.trim()).filter(Boolean);
-        const variableNames = (parsedNames.length ? parsedNames : QuineMcCluskey.defaultVarNames(parsedNames.length));
+        variableNames = (parsedNames.length ? parsedNames : QuineMcCluskey.defaultVarNames(parsedNames.length));
 
         const expression = QuineMcCluskey.solve(parsedNames.length, window.oracle, variableNames, true);
 
@@ -481,21 +576,34 @@ function oracle(A, B, C, D) {
             used.add(name);
             }
         }
-        // Keep original order
-        const minimizedVarList = variableNames.filter(v => used.has(v));
-        const funcArgs = minimizedVarList.join(', ');
+        // Only keep used variable names
+        usedVariableNames = variableNames.filter(v => used.has(v));
+        const funcArgs = usedVariableNames.join(',');
         const funcBody = 'return ' + expression + ';';
         const finalFunction = 'function oracle(' + funcArgs + ') {\n  ' + funcBody + '\n}';
-        //outputArea.value = finalFunction + '\n';
-        editors[1].setValue(finalFunction);
+        editorOutput.setValue(finalFunction);
         console.log('Minimized function:', finalFunction);
+    
     }
 </script>
 
 <script id='insert-oracle' type='text/javascript'></script>
 
 <script>
-    let editors = [];
+    let editorCode, editorSat, editorOutput;
+
+    function showInputTab(tab) {
+        document.getElementById('inputTab-code').style.display = (tab === 'code') ? '' : 'none';
+        if (tab === 'table') {
+            document.getElementById('inputTab-table').style.display = '';
+            if (!truthTableVariableNames.length) {
+                restoreTable();
+            }
+        } else {
+            document.getElementById('inputTab-table').style.display = 'none';
+        }
+        document.getElementById('inputTab-sat').style.display = (tab === 'sat') ? '' : 'none';
+    }
 
     // Setup CodeMirror editors
     function setupSampleCodeEditors() {
@@ -526,10 +634,9 @@ function oracle(A, B, C, D) {
 			autoCloseBrackets: true
 		};
 
-		const editor1 = CodeMirror.fromTextArea(document.getElementById('oracle-code'), options);
-		const editor2 = CodeMirror.fromTextArea(document.getElementById('output-code'), options);
-        editors.push(editor1);
-        editors.push(editor2);
+		editorCode = CodeMirror.fromTextArea(document.getElementById('oracle-code'), options);
+        editorSat = CodeMirror.fromTextArea(document.getElementById('oracle-sat'), options);
+		editorOutput = CodeMirror.fromTextArea(document.getElementById('output-code'), options);
 
         // editor1.on('change', function (cMirror) {
 		// 	saveSamplerSettings();
@@ -540,13 +647,135 @@ function oracle(A, B, C, D) {
 	}
 
     // Format the code editors
-	function formatSamplerCode() {
-		const editor1 = editors[0];
-		const editor2 = editors[1];
-
-		editor1.autoFormatRange({ line: 0, ch: 0 }, { line: editor1.lineCount() });
-		editor2.autoFormatRange({ line: 0, ch: 0 }, { line: editor2.lineCount() });
+	function formatCodeEditors() {
+		editorCode.autoFormatRange({ line: 0, ch: 0 }, { line: editorCode.lineCount() });
+        editorSat.autoFormatRange({ line: 0, ch: 0 }, { line: editorSat.lineCount() });
+		editorOutput.autoFormatRange({ line: 0, ch: 0 }, { line: editorOutput.lineCount() });
 	}
+
+    let truthTableValues = [], truthTableVariableNames = [];
+
+    function updateTableVariableList() {
+        const input = document.getElementById('variable-list');
+        const text = input.value;
+        const names = text.split(',').map(s => s.trim()).filter(Boolean);
+        if (names.length) {
+            truthTableVariableNames = names;
+        } else {
+            truthTableVariableNames = QuineMcCluskey.defaultVarNames(truthTableVariableNames.length || 4);
+            input.value = truthTableVariableNames.join(',');
+        }
+        setupTable();
+    }
+
+    function restoreTable() {
+        const input = document.getElementById('variable-list');
+        if (variableNames.length) {
+            input.value = variableNames.join(',');
+            truthTableVariableNames = [...variableNames];
+        } else {
+            truthTableVariableNames = QuineMcCluskey.defaultVarNames(truthTableVariableNames.length || 4);
+            input.value = truthTableVariableNames.join(',');
+        }
+        setupTable();
+    }
+
+    function setupTable() {
+        if (!applyOracleScript('code')) {
+            alert('Cannot setup table: Oracle function not defined');
+            return;
+        }
+
+        const container = document.getElementById('oracle-table');
+
+        if (container._handsontableInstance) {
+            container._handsontableInstance.destroy();
+            container._handsontableInstance = null;
+        }
+        container.innerHTML = '';
+
+        const headers = [...truthTableVariableNames, 'Result'];
+        const numVars = truthTableVariableNames.length;
+        const rowCount = 1 << numVars;
+
+        truthTableValues = []; // Reset before filling
+
+        const data = Array.from({ length: rowCount }, (_, idx) => {
+            const row = [];
+            for (let bit = numVars - 1; bit >= 0; bit--) {
+                row.push((idx >> bit) & 1);
+            }
+            let result;
+            try {
+                result = window.oracle(...row.map(Boolean));
+            } catch (e) {
+                result = 'ERROR: ' + e.message;
+            }
+            const resultValue = result === undefined ? '' : +!!result;
+            row.push(resultValue);
+            truthTableValues.push(resultValue);
+            return row;
+        });
+
+        const columns = Array.from({ length: truthTableVariableNames.length }, () => ({
+            type: 'numeric',
+            className: 'htCenter htMiddle',
+            readOnly: true
+        }));
+        columns.push({ type: 'numeric', className: 'htCenter htMiddle' });
+
+        // Set the result column width
+        const width = container.clientWidth || container.parentElement.clientWidth || 800;
+        const baseColWidth = 60;
+        const minTableWidth = (truthTableVariableNames.length + 1) * baseColWidth;
+        const scrollbarWidth = 16;
+        let colWidths;
+        if (width > minTableWidth) {
+            const resultColWidth = width - (truthTableVariableNames.length * baseColWidth) - scrollbarWidth;
+            colWidths = Array(truthTableVariableNames.length).fill(baseColWidth);
+            colWidths.push(Math.max(resultColWidth, baseColWidth * 2));
+        } else {
+            colWidths = Array(truthTableVariableNames.length).fill(baseColWidth);
+            colWidths.push(baseColWidth * 2);
+        }
+
+        const hot = new Handsontable(container, {
+            data,
+            columns,
+            colHeaders: headers,
+            rowHeaders: false,
+            colWidths: colWidths,
+            stretchH: 'none',
+            height: 360,
+            width: width,
+            autoWrapRow: false,
+            autoWrapCol: false,
+            contextMenu: true,
+            licenseKey: 'non-commercial-and-evaluation',
+            afterChange: function(changes, source) {
+                if (!changes) return;
+                for (const [row, col, oldValue, newValue] of changes) {
+                    if (col === truthTableVariableNames.length) {
+                        truthTableValues[row] = newValue;
+                    }
+                }
+            }
+        });
+        container._handsontableInstance = hot;
+    }
+
+    function generateTruthTableCode() {
+        // Args match truthTableVariableNames
+        const varList = truthTableVariableNames.join(', ');
+        return `function oracle(${varList}) {
+    const values = (typeof window !== 'undefined' && window.truthTableValues) ? window.truthTableValues : [];
+    const index = [${truthTableVariableNames.join(', ')}].reduce((acc, val) => acc * 2 + (val ? 1 : 0), 0);
+    const v = values[index];
+    if (v === 1 || v === '1') return true;
+    if (v === 0 || v === '0') return false;
+    return undefined;
+}`;
+    }
 
     window.onload = function() {
         setupSampleCodeEditors();
