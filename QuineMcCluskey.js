@@ -297,6 +297,109 @@ class QuineMcCluskey {
         };
     }
 
+    // Count non-don't-care literals in a pattern
+    static countLiteralsInPattern(pattern) {
+        let c = 0;
+        for (let i = 0; i < pattern.length; i++) if (pattern[i] !== '-') c++;
+        return c;
+    }
+
+    // Petrick's method: Given a coverage chart (Map of rowKey -> bitstring), a list of column indices to cover, and a set of rows to exclude, find minimal set of rows whose union covers all specified columns
+    static petrickMinCover(coverageChart, columnsToCover, excludeRows) {
+        const rowKeys = [...coverageChart.keys()].filter(k => !excludeRows.has(k));
+        // For each column, collect rows that cover it
+        const sums = columnsToCover.map(col => {
+            const options = [];
+            for (const r of rowKeys) {
+                const bits = coverageChart.get(r) || '';
+                if (bits[col] === '1') options.push(r);
+            }
+            return options;
+        });
+        // If any column is uncovered, return empty set
+        for (const opts of sums) {
+            if (!opts.length) {
+                return new Set();
+            }
+        }
+
+        // Expand all products pruning supersets at each step
+        let products = [new Set()];
+        for (const options of sums) {
+            const next = [];
+            for (const prod of products) {
+                for (const r of options) {
+                    const s = new Set(prod);
+                    s.add(r);
+                    next.push(s);
+                }
+            }
+            // Remove supersets keeping only minimal sets
+            const canonical = next.map(s => Array.from(s).sort());
+            const keep = new Array(canonical.length).fill(true);
+            for (let i = 0; i < canonical.length; i++) {
+                if (!keep[i]) continue;
+                for (let j = 0; j < canonical.length; j++) {
+                    if (i === j || !keep[j]) continue;
+                    // Drop i if j is a subset of i
+                    let subset = true;
+                    const a = canonical[j], b = canonical[i];
+                    let p = 0, q = 0;
+                    while (p < a.length && q < b.length) {
+                        if (a[p] === b[q]) {
+                            p++;
+                            q++;
+                        } else if (a[p] < b[q]) {
+                            subset = false;
+                            break;
+                        } else if (a[p] < b[q]) {
+                            subset = false;
+                            break;
+                        } else {
+                            q++;
+                        }
+                    }
+                    if (subset && p === a.length && b.length >= a.length) {
+                        keep[i] = false;
+                        break;
+                    }
+                }
+            }
+            products = [];
+            for (let i = 0; i < canonical.length; i++) {
+                if (keep[i]) {
+                    products.push(new Set(canonical[i]));
+                }
+            }
+        }
+
+        // Select by fewest rows, then fewest literals, then lexicographically
+        let best = null;
+        let bestKey = null;
+        const literalCostCache = new Map();
+        const getCost = (row) => {
+            let c = literalCostCache.get(row);
+            if (c !== undefined) return c;
+            c = QuineMcCluskey.countLiteralsInPattern(row);
+            literalCostCache.set(row, c);
+            return c;
+        };
+        for (const s of products) {
+            const arr = Array.from(s).sort();
+            const card = arr.length;
+            let litCost = 0;
+            for (const r of arr) {
+                litCost += getCost(r);
+            }
+            const key = JSON.stringify([card, litCost, arr]);
+            if (best === null || key < bestKey) {
+                best = new Set(arr);
+                bestKey = key;
+            }
+        }
+        return best || new Set();
+    }
+
     static solveCNF(variableNames, oracleFunction) {
         const maxterms = [];
         const initialImplicants = [];
@@ -307,14 +410,12 @@ class QuineMcCluskey {
                 const bitPattern = item.bits;
                 const numericValue = Number(item.value);
                 const isMaxterm = (item.oracleResponse === true);
-                if (isMaxterm) {
-                    maxterms.push(numericValue);
-                    initialImplicants.push({
-                        bits: bitPattern,
-                        minterms: new Set([numericValue]),
-                        used: false
-                    });
-                }
+                if (isMaxterm) maxterms.push(numericValue);
+                initialImplicants.push({
+                    bits: bitPattern,
+                    minterms: new Set(isMaxterm ? [numericValue] : []),
+                    used: false
+                });
             }
         }
 
@@ -354,7 +455,9 @@ class QuineMcCluskey {
             const coverageBits = coverageChart.get(pattern) || '';
             const covers = [];
             for (let i = 0; i < coverageBits.length; i++) {
-                if (coverageBits[i] === '1') covers.push(maxtermsSorted[i]);
+                if (coverageBits[i] === '1') {
+                    covers.push(maxtermsSorted[i]);
+                }
             }
             return {
                 pattern,
@@ -365,50 +468,35 @@ class QuineMcCluskey {
         }).sort((a, b) => a.pattern.localeCompare(b.pattern));
 
         const essentialExpanded = primeImplicantsExpanded.filter(pi => pi.essential);
+        const essentialSet = new Set(essentialExpanded.map(pi => pi.pattern));
 
-        // Handle special cases: if there are no maxterms (tautology), CNF is 'true'; if any essential clause is empty (all '-'), CNF is 'false'.
-        const hasEmptyClause = essentialExpanded.some(pi => pi.jsClause === '');
+        // Remove columns covered by essentials; solve remaining with Petrick's method (rows are prime implicates of F)
+        const coveredByEssentials = new Set();
+        for (let col = 0; col < maxtermsSorted.length; col++) {
+            for (const pi of essentialExpanded) {
+                const bits = coverageChart.get(pi.pattern) || '';
+                if (bits[col] === '1') {
+                    coveredByEssentials.add(col);
+                    break;
+                }
+            }
+        }
+        const toCover = [];
+        for (let col = 0; col < maxtermsSorted.length; col++) if (!coveredByEssentials.has(col)) toCover.push(col);
+        const petrickChosen = (toCover.length ? QuineMcCluskey.petrickMinCover(coverageChart, toCover, essentialSet) : new Set());
+        const chosenSet = new Set([...essentialSet, ...petrickChosen]);
+        const chosenExpanded = primeImplicantsExpanded.filter(pi => chosenSet.has(pi.pattern));
+
+        // If there are no maxterms (tautology) then CNF is true; if any chosen clause is empty (all '-') then CNF is false
+        const hasEmptyClause = chosenExpanded.some(pi => pi.jsClause === '');
         let jsExpression;
         if (hasEmptyClause) {
             jsExpression = 'false';
         } else if (maxtermsSorted.length === 0) {
             jsExpression = 'true';
         } else {
-            // Add non-essential clauses until all maxterms are covered
-            const covered = new Array(maxtermsSorted.length).fill(false);
-            for (const pi of essentialExpanded) for (const v of pi.covers) {
-                const idx = maxtermsSorted.indexOf(v); if (idx >= 0) covered[idx] = true;
-            }
-            const remaining = () => covered.some(c => !c);
-            const candidates = primeImplicantsExpanded.filter(pi => !pi.essential && pi.covers.length > 0);
-            const literalCount = (pattern) => {
-                let c = 0; for (let i = 0; i < pattern.length; i++) if (pattern[i] !== '-') c++; return c;
-            };
-            const extra = [];
-            while (remaining() && candidates.length) {
-                // Pick clause that covers most uncovered maxterms
-                let bestIdx = -1, bestGain = -1, bestCost = Infinity;
-                for (let i = 0; i < candidates.length; i++) {
-                    const pi = candidates[i];
-                    const gain = pi.covers.reduce((acc, v) => {
-                        const j = maxtermsSorted.indexOf(v);
-                        return acc + ((j >= 0 && !covered[j]) ? 1 : 0);
-                    }, 0);
-                    const cost = literalCount(pi.pattern);
-                    if (gain > bestGain || (gain === bestGain && cost < bestCost)) {
-                        bestGain = gain; bestCost = cost; bestIdx = i;
-                    }
-                }
-                if (bestIdx < 0 || bestGain <= 0) break;
-                const chosen = candidates.splice(bestIdx, 1)[0];
-                extra.push(chosen);
-                for (const v of chosen.covers) {
-                    const j = maxtermsSorted.indexOf(v); if (j >= 0) covered[j] = true;
-                }
-            }
-            const finalClauses = essentialExpanded.concat(extra);
-            const parts = finalClauses.map(pi => (pi.jsClause.includes('||') ? '(' + pi.jsClause + ')' : pi.jsClause));
-            jsExpression = parts.length ? parts.join(' && ') : 'true';
+            const parts = chosenExpanded.map(pi => (pi.jsClause.includes('||') ? '(' + pi.jsClause + ')' : pi.jsClause));
+            jsExpression = parts.join(' && ');
         }
 
         // Also generate SAT instance in DIMACS CNF format
@@ -417,39 +505,7 @@ class QuineMcCluskey {
         if (hasEmptyClause) {
             cnfClauses = ['0'];
         } else {
-            const finalForSat = (() => {
-                // Mirror the greedy cover selection used for jsExpression
-                const covered = new Array(maxtermsSorted.length).fill(false);
-                for (const pi of essentialExpanded) for (const v of pi.covers) {
-                    const idx = maxtermsSorted.indexOf(v); if (idx >= 0) covered[idx] = true;
-                }
-                const out = [...essentialExpanded];
-                const candidates = primeImplicantsExpanded.filter(pi => !pi.essential && pi.covers.length > 0);
-                const literalCount = (p) => { let c = 0; for (let i = 0; i < p.length; i++) if (p[i] !== '-') c++; return c; };
-                const remaining = () => covered.some(c => !c);
-                while (remaining() && candidates.length) {
-                    let bestIdx = -1, bestGain = -1, bestCost = Infinity;
-                    for (let i = 0; i < candidates.length; i++) {
-                        const pi = candidates[i];
-                        const gain = pi.covers.reduce((acc, v) => {
-                            const j = maxtermsSorted.indexOf(v);
-                            return acc + ((j >= 0 && !covered[j]) ? 1 : 0);
-                        }, 0);
-                        const cost = literalCount(pi.pattern);
-                        if (gain > bestGain || (gain === bestGain && cost < bestCost)) {
-                            bestGain = gain; bestCost = cost; bestIdx = i;
-                        }
-                    }
-                    if (bestIdx < 0 || bestGain <= 0) break;
-                    const chosen = candidates.splice(bestIdx, 1)[0];
-                    out.push(chosen);
-                    for (const v of chosen.covers) {
-                        const j = maxtermsSorted.indexOf(v); if (j >= 0) covered[j] = true;
-                    }
-                }
-                return out;
-            })();
-            cnfClauses = finalForSat.map(pi => {
+            cnfClauses = chosenExpanded.map(pi => {
                 if (pi.jsClause === '') return '0';
                 const lits = [];
                 for (let i = 0; i < pi.pattern.length; i++) {
@@ -481,15 +537,12 @@ class QuineMcCluskey {
                 const bitPattern = item.bits;
                 const numericValue = Number(item.value);
                 const isMinterm = (item.oracleResponse === true);
-                if (isMinterm) {
-                    minterms.push(numericValue);
-                    // Include on-set terms (minterms) as initial implicants
-                    initialImplicants.push({
-                        bits: bitPattern,
-                        minterms: new Set([numericValue]),
-                        used: false
-                    });
-                }
+                if (isMinterm) minterms.push(numericValue);
+                initialImplicants.push({
+                    bits: bitPattern,
+                    minterms: new Set(isMinterm ? [numericValue] : []),
+                    used: false
+                });
             }
         }
 
@@ -529,7 +582,9 @@ class QuineMcCluskey {
             const coverageBits = coverageChart.get(pattern) || '';
             const covers = [];
             for (let i = 0; i < coverageBits.length; i++) {
-                if (coverageBits[i] === '1') covers.push(mintermsSorted[i]);
+                if (coverageBits[i] === '1') {
+                    covers.push(mintermsSorted[i]);
+                }
             }
             return {
                 pattern,
@@ -540,50 +595,35 @@ class QuineMcCluskey {
         }).sort((a, b) => a.pattern.localeCompare(b.pattern));
 
         const essentialExpanded = primeImplicantsExpanded.filter(pi => pi.essential);
+        const essentialSet = new Set(essentialExpanded.map(pi => pi.pattern));
 
-        // Handle special cases: if there are no minterms (contradiction), DNF is 'false'; if any essential term is empty (all '-'), DNF is 'true'.
-        const hasEmptyTerm = essentialExpanded.some(pi => pi.jsTerm === '');
+        // Remove columns covered by essentials; solve remaining with Petrick's method (rows are prime implicants of F)
+        const coveredByEssentials = new Set();
+        for (let col = 0; col < mintermsSorted.length; col++) {
+            for (const pi of essentialExpanded) {
+                const bits = coverageChart.get(pi.pattern) || '';
+                if (bits[col] === '1') {
+                    coveredByEssentials.add(col);
+                    break;
+                }
+            }
+        }
+        const toCover = [];
+        for (let col = 0; col < mintermsSorted.length; col++) if (!coveredByEssentials.has(col)) toCover.push(col);
+        const petrickChosen = (toCover.length ? QuineMcCluskey.petrickMinCover(coverageChart, toCover, essentialSet) : new Set());
+        const chosenSet = new Set([...essentialSet, ...petrickChosen]);
+        const chosenExpanded = primeImplicantsExpanded.filter(pi => chosenSet.has(pi.pattern));
+
+        // If there are no minterms (contradiction) then DNF is false; if any chosen term is empty (all '-') then DNF is true
+        const hasEmptyTerm = chosenExpanded.some(pi => pi.jsTerm === '');
         let jsExpression;
         if (hasEmptyTerm) {
             jsExpression = 'true';
         } else if (mintermsSorted.length === 0) {
             jsExpression = 'false';
         } else {
-            // Add non-essential terms until all minterms are covered
-            const covered = new Array(mintermsSorted.length).fill(false);
-            for (const pi of essentialExpanded) for (const v of pi.covers) {
-                const idx = mintermsSorted.indexOf(v); if (idx >= 0) covered[idx] = true;
-            }
-            const remaining = () => covered.some(c => !c);
-            const candidates = primeImplicantsExpanded.filter(pi => !pi.essential && pi.covers.length > 0);
-            const literalCount = (pattern) => {
-                let c = 0; for (let i = 0; i < pattern.length; i++) if (pattern[i] !== '-') c++; return c;
-            };
-            const extra = [];
-            while (remaining() && candidates.length) {
-                // Pick term that covers most uncovered minterms
-                let bestIdx = -1, bestGain = -1, bestCost = Infinity;
-                for (let i = 0; i < candidates.length; i++) {
-                    const pi = candidates[i];
-                    const gain = pi.covers.reduce((acc, v) => {
-                        const j = mintermsSorted.indexOf(v);
-                        return acc + ((j >= 0 && !covered[j]) ? 1 : 0);
-                    }, 0);
-                    const cost = literalCount(pi.pattern);
-                    if (gain > bestGain || (gain === bestGain && cost < bestCost)) {
-                        bestGain = gain; bestCost = cost; bestIdx = i;
-                    }
-                }
-                if (bestIdx < 0 || bestGain <= 0) break;
-                const chosen = candidates.splice(bestIdx, 1)[0];
-                extra.push(chosen);
-                for (const v of chosen.covers) {
-                    const j = mintermsSorted.indexOf(v); if (j >= 0) covered[j] = true;
-                }
-            }
-            const finalTerms = essentialExpanded.concat(extra);
-            const parts = finalTerms.map(pi => (pi.jsTerm.includes('&&') ? '(' + pi.jsTerm + ')' : pi.jsTerm));
-            jsExpression = parts.length ? parts.join(' || ') : 'false';
+            const parts = chosenExpanded.map(pi => (pi.jsTerm.includes('&&') ? '(' + pi.jsTerm + ')' : pi.jsTerm));
+            jsExpression = parts.join(' || ');
         }
 
         // Also generate SAT instance in DIMACS DNF format
@@ -592,39 +632,7 @@ class QuineMcCluskey {
         if (hasEmptyTerm) {
             dnfClauses = ['0'];
         } else {
-            const finalForSat = (() => {
-                // Mirror the greedy cover selection used for jsExpression
-                const covered = new Array(mintermsSorted.length).fill(false);
-                for (const pi of essentialExpanded) for (const v of pi.covers) {
-                    const idx = mintermsSorted.indexOf(v); if (idx >= 0) covered[idx] = true;
-                }
-                const out = [...essentialExpanded];
-                const candidates = primeImplicantsExpanded.filter(pi => !pi.essential && pi.covers.length > 0);
-                const literalCount = (p) => { let c = 0; for (let i = 0; i < p.length; i++) if (p[i] !== '-') c++; return c; };
-                const remaining = () => covered.some(c => !c);
-                while (remaining() && candidates.length) {
-                    let bestIdx = -1, bestGain = -1, bestCost = Infinity;
-                    for (let i = 0; i < candidates.length; i++) {
-                        const pi = candidates[i];
-                        const gain = pi.covers.reduce((acc, v) => {
-                            const j = mintermsSorted.indexOf(v);
-                            return acc + ((j >= 0 && !covered[j]) ? 1 : 0);
-                        }, 0);
-                        const cost = literalCount(pi.pattern);
-                        if (gain > bestGain || (gain === bestGain && cost < bestCost)) {
-                            bestGain = gain; bestCost = cost; bestIdx = i;
-                        }
-                    }
-                    if (bestIdx < 0 || bestGain <= 0) break;
-                    const chosen = candidates.splice(bestIdx, 1)[0];
-                    out.push(chosen);
-                    for (const v of chosen.covers) {
-                        const j = mintermsSorted.indexOf(v); if (j >= 0) covered[j] = true;
-                    }
-                }
-                return out;
-            })();
-            dnfClauses = finalForSat.map(pi => {
+            dnfClauses = chosenExpanded.map(pi => {
                 if (pi.jsTerm === '') return '0';
                 const lits = [];
                 for (let i = 0; i < pi.pattern.length; i++) {
