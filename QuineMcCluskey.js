@@ -289,7 +289,10 @@ class QuineMcCluskey {
     static oracleForComplement(oracleFunction) {
         return (...inputBits) => {
             let v = false;
-            try { v = oracleFunction(...inputBits); } catch (e) { /* ignore */ }
+            try {
+                v = oracleFunction(...inputBits);
+            } catch (e) {}
+            if (v === undefined) return undefined;
             return (v === false);
         };
     }
