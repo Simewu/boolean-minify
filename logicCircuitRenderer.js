@@ -11,12 +11,12 @@ const RENDER_OPTIONS = {
     gateWidth: 40,    // Width of each logic gate
     hGap: 60,         // Horizontal gap between gate centers
     vGap: 50,         // Vertical gap between input variables
-    inputStub: 5,     // Length of input wire before gate
-    labelOffsetX: 20, // X offset for variable label
-    labelPad: 20,     // Space between label and input wire
+    inputStub: 3,     // Length of input wire before gate
+    labelOffsetX: 15, // X offset for variable label
+    labelPad: 5,      // Space between label and input wire
     outputStub: 25,   // Length of output wire after gate
     wireJog: 18,      // Horizontal jog for wire routing
-    marginY: 32,      // Vertical margin around circuit
+    marginY: 20,      // Vertical margin around circuit
     minFlat: 10,      // Minimum flat segment for gate drawing
     font: '30px \'Times New Roman\', Times, serif',
     errorFont: '30px \'Times New Roman\', Times, serif',
@@ -131,7 +131,6 @@ class LogicCircuitRenderer {
         let leftWireX = labelOffsetX + labelPad;
         let outputStub = opts.outputStub;
         let wireJog = opts.wireJog;
-
         ctx.lineWidth = lineWidth;
         ctx.lineCap = 'butt';
         ctx.lineJoin = 'bevel';
@@ -298,7 +297,7 @@ class LogicCircuitRenderer {
 
         // Draw variable labels and input wires
         ctx.font = opts.font;
-        ctx.textAlign = 'center';
+        ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
         setColor();
         for (const leaf of leaves) {
