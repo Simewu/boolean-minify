@@ -9,12 +9,12 @@
 <body>
   <h1>Quine-McCluskey</h1>
   <textarea id='input' style='width:500px;' rows='11' readonly></textarea><br>
-  <textarea id='output' style='width:500px;' rows='7' readonly></textarea>
+  <textarea id='outputDNF' style='width:500px;' rows='7' readonly placeholder="DNF Output"></textarea><br>
+  <textarea id='outputCNF' style='width:500px;' rows='7' readonly placeholder="CNF Output"></textarea>
 
   <script src='QuineMcCluskey.js' type='text/javascript'></script>
 
   <script>
-    
     // Input: Arbitrary number of boolean variables (A, B, C, ...)
     // Output: true, false, or undefined (don't care)
     function inputOracleFunction(A, B, C, D, E) {
@@ -29,13 +29,20 @@
       return !!value;
     }
 
-    const { js, sat } = QuineMcCluskey.solve(['A', 'B', 'C', 'D', 'E'], inputOracleFunction);
+    const dnf = QuineMcCluskey.solveDNF(['A', 'B', 'C', 'D', 'E'], inputOracleFunction);
 
+    let resultDNF = '';
+    resultDNF += 'DNF OUTPUT EXPRESSION:\n' + dnf.js + '\n\n';
+    resultDNF += 'DNF OUTPUT DIMACS SAT:\n' + dnf.sat;
+    document.getElementById('outputDNF').value = resultDNF;
 
-    let result = '';
-    result += 'OUTPUT EXPRESSION:\n' + js + '\n\n';
-    result += 'OUTPUT DIMACS SAT:\n' + sat;
-    document.getElementById('output').value = result;
+    const cnf = QuineMcCluskey.solveCNF(['A', 'B', 'C', 'D', 'E'], inputOracleFunction);
+
+    let resultCNF = '';
+    resultCNF += 'CNF OUTPUT EXPRESSION:\n' + cnf.js + '\n\n';
+    resultCNF += 'CNF OUTPUT DIMACS SAT:\n' + cnf.sat;
+    document.getElementById('outputCNF').value = resultCNF;
+    
     document.getElementById('input').value = inputOracleFunction.toString().replace(/\n {4}/g, '\n');
   </script>
 </body>

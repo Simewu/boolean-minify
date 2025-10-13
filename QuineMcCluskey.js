@@ -285,22 +285,208 @@ class QuineMcCluskey {
         return levels;
     }
 
-    static solve(variableNames, oracleFunction) {
+    // Create an oracle function that returns the complement of the given oracle function
+    static oracleForComplement(oracleFunction) {
+        return (...inputBits) => {
+            let v = false;
+            try { v = oracleFunction(...inputBits); } catch (e) { /* ignore */ }
+            return (v === false);
+        };
+    }
+
+    static solveCNF(variableNames, oracleFunction) {
+        const maxterms = [];
+        const initialImplicants = [];
+
+        const numVariables = variableNames.length;
+        for (let weight = 0; weight <= numVariables; weight++) {
+            for (const item of BinomialCoefficients.filterGenerator(numVariables, weight, QuineMcCluskey.oracleForComplement(oracleFunction))) {
+                const bitPattern = item.bits;
+                const numericValue = Number(item.value);
+                const isMaxterm = (item.oracleResponse === true);
+                if (isMaxterm) {
+                    maxterms.push(numericValue);
+                    initialImplicants.push({
+                        bits: bitPattern,
+                        minterms: new Set([numericValue]),
+                        used: false
+                    });
+                }
+            }
+        }
+
+        const implicantLevels = QuineMcCluskey.buildImplicantLevels(initialImplicants);
+
+        const allPrimeBits = new Set();
+        for (const lvl of implicantLevels) {
+            for (const b of lvl.primeSet) allPrimeBits.add(b);
+        }
+        const primeImplicantsBits = Array.from(allPrimeBits).sort();
+
+        const maxtermsSorted = [...maxterms].sort((a, b) => a - b);
+        const maxtermBinaryStrings = maxtermsSorted.map(v => QuineMcCluskey.toBitString(numVariables, v));
+        const coverageChart = new Map();
+        for (const implicantPattern of primeImplicantsBits) {
+            const patternRegex = new RegExp('^' + implicantPattern.replace(/-/g, '[01]') + '$');
+            const coverageBits = maxtermBinaryStrings.map(binStr => (patternRegex.test(binStr) ? '1' : '0')).join('');
+            coverageChart.set(implicantPattern, coverageBits);
+        }
+
+        const essentialBits = new Set(QuineMcCluskey.getEssentialPrimeImplicants(coverageChart));
+
+        const clauseFromPattern = (pattern) => {
+            const jsTokens = [];
+            for (let i = 0; i < pattern.length; i++) {
+                const bit = pattern[i];
+                if (bit === '-') continue;
+                const varName = variableNames[i] || ('V' + i);
+                jsTokens.push(bit === '0' ? varName : '!' + varName);
+            }
+            if (!jsTokens.length) return ''; // Empty clause is false
+            if (jsTokens.length === 1) return jsTokens[0];
+            return jsTokens.join(' || ');
+        };
+
+        const primeImplicantsExpanded = primeImplicantsBits.map(pattern => {
+            const coverageBits = coverageChart.get(pattern) || '';
+            const covers = [];
+            for (let i = 0; i < coverageBits.length; i++) {
+                if (coverageBits[i] === '1') covers.push(maxtermsSorted[i]);
+            }
+            return {
+                pattern,
+                jsClause: clauseFromPattern(pattern),
+                covers,
+                essential: essentialBits.has(pattern)
+            };
+        }).sort((a, b) => a.pattern.localeCompare(b.pattern));
+
+        const essentialExpanded = primeImplicantsExpanded.filter(pi => pi.essential);
+
+        // Handle special cases: if there are no maxterms (tautology), CNF is 'true'; if any essential clause is empty (all '-'), CNF is 'false'.
+        const hasEmptyClause = essentialExpanded.some(pi => pi.jsClause === '');
+        let jsExpression;
+        if (hasEmptyClause) {
+            jsExpression = 'false';
+        } else if (maxtermsSorted.length === 0) {
+            jsExpression = 'true';
+        } else {
+            // Add non-essential clauses until all maxterms are covered
+            const covered = new Array(maxtermsSorted.length).fill(false);
+            for (const pi of essentialExpanded) for (const v of pi.covers) {
+                const idx = maxtermsSorted.indexOf(v); if (idx >= 0) covered[idx] = true;
+            }
+            const remaining = () => covered.some(c => !c);
+            const candidates = primeImplicantsExpanded.filter(pi => !pi.essential && pi.covers.length > 0);
+            const literalCount = (pattern) => {
+                let c = 0; for (let i = 0; i < pattern.length; i++) if (pattern[i] !== '-') c++; return c;
+            };
+            const extra = [];
+            while (remaining() && candidates.length) {
+                // Pick clause that covers most uncovered maxterms
+                let bestIdx = -1, bestGain = -1, bestCost = Infinity;
+                for (let i = 0; i < candidates.length; i++) {
+                    const pi = candidates[i];
+                    const gain = pi.covers.reduce((acc, v) => {
+                        const j = maxtermsSorted.indexOf(v);
+                        return acc + ((j >= 0 && !covered[j]) ? 1 : 0);
+                    }, 0);
+                    const cost = literalCount(pi.pattern);
+                    if (gain > bestGain || (gain === bestGain && cost < bestCost)) {
+                        bestGain = gain; bestCost = cost; bestIdx = i;
+                    }
+                }
+                if (bestIdx < 0 || bestGain <= 0) break;
+                const chosen = candidates.splice(bestIdx, 1)[0];
+                extra.push(chosen);
+                for (const v of chosen.covers) {
+                    const j = maxtermsSorted.indexOf(v); if (j >= 0) covered[j] = true;
+                }
+            }
+            const finalClauses = essentialExpanded.concat(extra);
+            const parts = finalClauses.map(pi => (pi.jsClause.includes('||') ? '(' + pi.jsClause + ')' : pi.jsClause));
+            jsExpression = parts.length ? parts.join(' && ') : 'true';
+        }
+
+        // Also generate SAT instance in DIMACS CNF format
+        const varCount = variableNames.length;
+        let cnfClauses = [];
+        if (hasEmptyClause) {
+            cnfClauses = ['0'];
+        } else {
+            const finalForSat = (() => {
+                // Mirror the greedy cover selection used for jsExpression
+                const covered = new Array(maxtermsSorted.length).fill(false);
+                for (const pi of essentialExpanded) for (const v of pi.covers) {
+                    const idx = maxtermsSorted.indexOf(v); if (idx >= 0) covered[idx] = true;
+                }
+                const out = [...essentialExpanded];
+                const candidates = primeImplicantsExpanded.filter(pi => !pi.essential && pi.covers.length > 0);
+                const literalCount = (p) => { let c = 0; for (let i = 0; i < p.length; i++) if (p[i] !== '-') c++; return c; };
+                const remaining = () => covered.some(c => !c);
+                while (remaining() && candidates.length) {
+                    let bestIdx = -1, bestGain = -1, bestCost = Infinity;
+                    for (let i = 0; i < candidates.length; i++) {
+                        const pi = candidates[i];
+                        const gain = pi.covers.reduce((acc, v) => {
+                            const j = maxtermsSorted.indexOf(v);
+                            return acc + ((j >= 0 && !covered[j]) ? 1 : 0);
+                        }, 0);
+                        const cost = literalCount(pi.pattern);
+                        if (gain > bestGain || (gain === bestGain && cost < bestCost)) {
+                            bestGain = gain; bestCost = cost; bestIdx = i;
+                        }
+                    }
+                    if (bestIdx < 0 || bestGain <= 0) break;
+                    const chosen = candidates.splice(bestIdx, 1)[0];
+                    out.push(chosen);
+                    for (const v of chosen.covers) {
+                        const j = maxtermsSorted.indexOf(v); if (j >= 0) covered[j] = true;
+                    }
+                }
+                return out;
+            })();
+            cnfClauses = finalForSat.map(pi => {
+                if (pi.jsClause === '') return '0';
+                const lits = [];
+                for (let i = 0; i < pi.pattern.length; i++) {
+                    const bit = pi.pattern[i];
+                    if (bit === '-') continue;
+                    const idx = i + 1;
+                    lits.push(bit === '0' ? idx : -idx);
+                }
+                return lits.join(' ') + ' 0';
+            });
+        }
+        const cnfCode =
+            `p cnf ${varCount} ${cnfClauses.length}\n` +
+            cnfClauses.join('\n');
+
+        return {
+            js: jsExpression,
+            sat: cnfCode
+        };
+    }
+
+    static solveDNF(variableNames, oracleFunction) {
         const minterms = [];
         const initialImplicants = [];
 
-        let numVariables = variableNames.length;
+        const numVariables = variableNames.length;
         for (let weight = 0; weight <= numVariables; weight++) {
             for (const item of BinomialCoefficients.filterGenerator(numVariables, weight, oracleFunction)) {
                 const bitPattern = item.bits;
                 const numericValue = Number(item.value);
                 const isMinterm = (item.oracleResponse === true);
-                if (isMinterm) minterms.push(numericValue);
-                initialImplicants.push({
-                    bits: bitPattern,
-                    minterms: new Set(isMinterm ? [numericValue] : []),
-                    used: false
-                });
+                if (isMinterm) {
+                    minterms.push(numericValue);
+                    // Include on-set terms (minterms) as initial implicants
+                    initialImplicants.push({
+                        bits: bitPattern,
+                        minterms: new Set([numericValue]),
+                        used: false
+                    });
+                }
             }
         }
 
@@ -323,7 +509,7 @@ class QuineMcCluskey {
 
         const essentialBits = new Set(QuineMcCluskey.getEssentialPrimeImplicants(coverageChart));
 
-        const productFromPattern = (pattern) => {
+        const termFromPattern = (pattern) => {
             const jsTokens = [];
             for (let i = 0; i < pattern.length; i++) {
                 const bit = pattern[i];
@@ -331,7 +517,7 @@ class QuineMcCluskey {
                 const varName = variableNames[i] || ('V' + i);
                 jsTokens.push(bit === '1' ? varName : '!' + varName);
             }
-            if (!jsTokens.length) return 'true';
+            if (!jsTokens.length) return ''; // Empty term is true
             if (jsTokens.length === 1) return jsTokens[0];
             return jsTokens.join(' && ');
         };
@@ -344,29 +530,112 @@ class QuineMcCluskey {
             }
             return {
                 pattern,
-                jsExpression: productFromPattern(pattern),
+                jsTerm: termFromPattern(pattern),
                 covers,
                 essential: essentialBits.has(pattern)
             };
         }).sort((a, b) => a.pattern.localeCompare(b.pattern));
 
         const essentialExpanded = primeImplicantsExpanded.filter(pi => pi.essential);
-        const jsExpression = essentialExpanded.length ? essentialExpanded.map(pi => pi.jsExpression).join(' || ') : 'false';
+
+        // Handle special cases: if there are no minterms (contradiction), DNF is 'false'; if any essential term is empty (all '-'), DNF is 'true'.
+        const hasEmptyTerm = essentialExpanded.some(pi => pi.jsTerm === '');
+        let jsExpression;
+        if (hasEmptyTerm) {
+            jsExpression = 'true';
+        } else if (mintermsSorted.length === 0) {
+            jsExpression = 'false';
+        } else {
+            // Add non-essential terms until all minterms are covered
+            const covered = new Array(mintermsSorted.length).fill(false);
+            for (const pi of essentialExpanded) for (const v of pi.covers) {
+                const idx = mintermsSorted.indexOf(v); if (idx >= 0) covered[idx] = true;
+            }
+            const remaining = () => covered.some(c => !c);
+            const candidates = primeImplicantsExpanded.filter(pi => !pi.essential && pi.covers.length > 0);
+            const literalCount = (pattern) => {
+                let c = 0; for (let i = 0; i < pattern.length; i++) if (pattern[i] !== '-') c++; return c;
+            };
+            const extra = [];
+            while (remaining() && candidates.length) {
+                // Pick term that covers most uncovered minterms
+                let bestIdx = -1, bestGain = -1, bestCost = Infinity;
+                for (let i = 0; i < candidates.length; i++) {
+                    const pi = candidates[i];
+                    const gain = pi.covers.reduce((acc, v) => {
+                        const j = mintermsSorted.indexOf(v);
+                        return acc + ((j >= 0 && !covered[j]) ? 1 : 0);
+                    }, 0);
+                    const cost = literalCount(pi.pattern);
+                    if (gain > bestGain || (gain === bestGain && cost < bestCost)) {
+                        bestGain = gain; bestCost = cost; bestIdx = i;
+                    }
+                }
+                if (bestIdx < 0 || bestGain <= 0) break;
+                const chosen = candidates.splice(bestIdx, 1)[0];
+                extra.push(chosen);
+                for (const v of chosen.covers) {
+                    const j = mintermsSorted.indexOf(v); if (j >= 0) covered[j] = true;
+                }
+            }
+            const finalTerms = essentialExpanded.concat(extra);
+            const parts = finalTerms.map(pi => (pi.jsTerm.includes('&&') ? '(' + pi.jsTerm + ')' : pi.jsTerm));
+            jsExpression = parts.length ? parts.join(' || ') : 'false';
+        }
 
         // Also generate SAT instance in DIMACS DNF format
         const varCount = variableNames.length;
-        const clauses = essentialExpanded.map(pi => {
-            const lits = [];
-            for (let i = 0; i < pi.pattern.length; i++) {
-                if (pi.pattern[i] === '-') continue;
-                const idx = i + 1;
-                lits.push(pi.pattern[i] === '1' ? idx : -idx);
-            }
-            return lits.join(' ') + ' 0';
-        });
+        let dnfClauses = [];
+        if (hasEmptyTerm) {
+            dnfClauses = ['0'];
+        } else {
+            const finalForSat = (() => {
+                // Mirror the greedy cover selection used for jsExpression
+                const covered = new Array(mintermsSorted.length).fill(false);
+                for (const pi of essentialExpanded) for (const v of pi.covers) {
+                    const idx = mintermsSorted.indexOf(v); if (idx >= 0) covered[idx] = true;
+                }
+                const out = [...essentialExpanded];
+                const candidates = primeImplicantsExpanded.filter(pi => !pi.essential && pi.covers.length > 0);
+                const literalCount = (p) => { let c = 0; for (let i = 0; i < p.length; i++) if (p[i] !== '-') c++; return c; };
+                const remaining = () => covered.some(c => !c);
+                while (remaining() && candidates.length) {
+                    let bestIdx = -1, bestGain = -1, bestCost = Infinity;
+                    for (let i = 0; i < candidates.length; i++) {
+                        const pi = candidates[i];
+                        const gain = pi.covers.reduce((acc, v) => {
+                            const j = mintermsSorted.indexOf(v);
+                            return acc + ((j >= 0 && !covered[j]) ? 1 : 0);
+                        }, 0);
+                        const cost = literalCount(pi.pattern);
+                        if (gain > bestGain || (gain === bestGain && cost < bestCost)) {
+                            bestGain = gain; bestCost = cost; bestIdx = i;
+                        }
+                    }
+                    if (bestIdx < 0 || bestGain <= 0) break;
+                    const chosen = candidates.splice(bestIdx, 1)[0];
+                    out.push(chosen);
+                    for (const v of chosen.covers) {
+                        const j = mintermsSorted.indexOf(v); if (j >= 0) covered[j] = true;
+                    }
+                }
+                return out;
+            })();
+            dnfClauses = finalForSat.map(pi => {
+                if (pi.jsTerm === '') return '0';
+                const lits = [];
+                for (let i = 0; i < pi.pattern.length; i++) {
+                    const bit = pi.pattern[i];
+                    if (bit === '-') continue;
+                    const idx = i + 1;
+                    lits.push(bit === '1' ? idx : -idx);
+                }
+                return lits.join(' ') + ' 0';
+            });
+        }
         const dnfCode =
-            `p dnf ${varCount} ${clauses.length}\n` +
-            clauses.join('\n');
+            `p dnf ${varCount} ${dnfClauses.length}\n` +
+            dnfClauses.join('\n');
 
         return {
             js: jsExpression,

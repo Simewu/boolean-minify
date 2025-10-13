@@ -207,6 +207,11 @@ p cnf 5 6
                             onchange='if(document.getElementById("autoRunCheckbox").checked) run();'>
                         <label for='maintainVarsCheckbox' class='form-check-label mb-0 ms-2' style='font-size: 0.7rem;'>Maintain the same variable list</label>
                     </div>
+                    <div class='form-check form-switch d-flex align-items-center mb-0' style='margin-bottom:0;'>
+                        <input id='formCnfCheckbox' type='checkbox' class='form-check-input' style='margin-top:0;' checked
+                            onchange='toggleCNFDNF(); if(document.getElementById("autoRunCheckbox").checked) run();'>
+                        <label id='formCnfLabel' for='formCnfCheckbox' class='form-check-label mb-0 ms-2' style='font-size: 0.7rem;'>Form: CNF</label>
+                    </div>
                 </div>
                 <div id='outputTab-code'>
                     <textarea id='output-code' class='form-control' rows='18' readonly></textarea>
@@ -340,7 +345,15 @@ p cnf 5 6
         const parsedNames = paramList.split(',').map(s => s.trim()).filter(Boolean);
         variableNames = (parsedNames.length ? parsedNames : QuineMcCluskey.defaultVarNames(parsedNames.length));
 
-        const { js: expression, sat: satExpression } = QuineMcCluskey.solve(variableNames, window.oracle);
+        // CNF is true, DNF is false
+        const isCNF = document.getElementById('formCnfCheckbox').checked;
+        let expression, satExpression;
+        
+        if (isCNF) {
+            ({ js: expression, sat: satExpression } = QuineMcCluskey.solveCNF(variableNames, window.oracle));
+        } else {
+            ({ js: expression, sat: satExpression } = QuineMcCluskey.solveDNF(variableNames, window.oracle));
+        }
 
         circuitExpression = expression.replace(/&&/g, '&').replace(/\|\|/g, '|');
         outputSat.setValue(satExpression);
@@ -454,6 +467,16 @@ p cnf 5 6
             run();
         } else {
             console.log('Auto-run disabled');
+        }
+    }
+
+    function toggleCNFDNF() {
+        const isCNF = document.getElementById('formCnfCheckbox').checked;
+        var label = document.getElementById("formCnfLabel");
+        if(isCNF) {
+            label.textContent = "Form: CNF";
+        } else {
+            label.textContent = "Form: DNF";
         }
     }
 
