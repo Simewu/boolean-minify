@@ -495,8 +495,15 @@ class QuineMcCluskey {
         } else if (maxtermsSorted.length === 0) {
             jsExpression = 'true';
         } else {
-            const parts = chosenExpanded.map(pi => (pi.jsClause.includes('||') ? '(' + pi.jsClause + ')' : pi.jsClause));
-            jsExpression = parts.join(' && ');
+            const partsRaw = chosenExpanded.map(pi => pi.jsClause);
+            if (partsRaw.length === 1) {
+                // Single clause
+                jsExpression = partsRaw[0];
+            } else {
+                // Multiple clauses
+                const parts = partsRaw.map(c => (c.includes('||') ? '(' + c + ')' : c));
+                jsExpression = parts.join(' && ');
+            }
         }
 
         // Also generate SAT instance in DIMACS CNF format
@@ -622,8 +629,15 @@ class QuineMcCluskey {
         } else if (mintermsSorted.length === 0) {
             jsExpression = 'false';
         } else {
-            const parts = chosenExpanded.map(pi => (pi.jsTerm.includes('&&') ? '(' + pi.jsTerm + ')' : pi.jsTerm));
-            jsExpression = parts.join(' || ');
+            const partsRaw = chosenExpanded.map(pi => pi.jsTerm);
+            if (partsRaw.length === 1) {
+                // Single term
+                jsExpression = partsRaw[0];
+            } else {
+                // Multiple terms
+                const parts = partsRaw.map(t => (t.includes('&&') ? '(' + t + ')' : t));
+                jsExpression = parts.join(' || ');
+            }
         }
 
         // Also generate SAT instance in DIMACS DNF format
