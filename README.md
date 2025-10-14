@@ -4,7 +4,7 @@
 Canonical form: A standard representation of Boolean expressions used to demonstrate equivalence between different forms.
 ```
 
-This browser-based tool simplifies Boolean expressions by converting them into their canonical form. It accepts a JavaScript oracle function, truth table, or DIMACS SAT instance (CNF or DNF) and produces a minimized JavaScript function, truth table, DIMACS CNF or DNF instance, or logic circuit diagram.
+This browser-based tool simplifies Boolean expressions by converting them into their canonical form. It accepts a JavaScript oracle function, truth table, or DIMACS SAT instance (CNF or DNF) and produces a minimized JavaScript function, truth table, DIMACS CNF or DNF instance, logic circuit diagram, or Karnaugh map.
 
 ![](lib/screenshot.png)
 

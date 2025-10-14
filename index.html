@@ -2,36 +2,38 @@
 <html lang='en'>
 
 <head>
-	<meta charset='UTF-8'>
-	<meta name='viewport' content='width=device-width, initial-scale=1.0'>
-	<link rel='icon' href='lib/favicon.svg'>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <link rel='icon' href='lib/favicon.svg'>
     <title>Expression Minify</title>
     <link href='lib/bootstrap.min.css' rel='stylesheet'>
     <link rel='stylesheet' href='lib/codemirror/lint.css'>
-	<link rel='stylesheet' href='lib/codemirror/codemirror.css'>
-	<link rel='stylesheet' href='lib/codemirror/material-darker.css'>
+    <link rel='stylesheet' href='lib/codemirror/codemirror.css'>
+    <link rel='stylesheet' href='lib/codemirror/material-darker.css'>
     <!-- <link rel='stylesheet' href='https://raw.githubusercontent.com/handsontable/handsontable/refs/tags/16.1.1/handsontable/dist/handsontable.min.css'> -->
     <link rel='stylesheet' href='lib/handsontable/handsontable.min.css'>
     <style>
-		body {
-			background-color: #151719;
-			font-family: 'Times New Roman', Times, serif;
-			padding: 20px;
-		}
+        body {
+            background-color: #151719;
+            font-family: 'Times New Roman', Times, serif;
+            padding: 20px;
+        }
 
-		p {
-			font-family: 'Times New Roman', Times, serif;
-			margin: 0;
-		}
+        p {
+            font-family: 'Times New Roman', Times, serif;
+            margin: 0;
+        }
 
         input[type='checkbox'].form-check-input:checked {
             background-color: #b0b0b0 !important;
             border-color: #b0b0b0 !important;
         }
+
         input[type='checkbox'].form-check-input:focus {
-            box-shadow: 0 0 0 0.2rem rgba(176,176,176,0.25) !important;
+            box-shadow: 0 0 0 0.2rem rgba(176, 176, 176, 0.25) !important;
             border-color: #b0b0b0 !important;
         }
+
         input[type='checkbox'].form-check-input {
             accent-color: #b0b0b0 !important;
         }
@@ -66,6 +68,7 @@
             color: #EEFFFF !important;
             font-size: 0.7rem;
         }
+
         .handsontable th {
             color: #FFFFFF !important;
             font-weight: 500;
@@ -78,6 +81,7 @@
             background: #23262a !important;
             box-shadow: inset 0 0 0 1px #FFCC00 !important;
         }
+
         .handsontable .area {
             background: #2A2E33 !important;
         }
@@ -107,16 +111,19 @@
     <div class='container my-4 p-4 rounded-3 bg-body-tertiary'>
         <div class='row g-3 align-items-stretch'>
             <div class='col-12 col-lg-6'>
-                <label for='oracle-code' class='form-label display-6 fw-light text-body-emphasis' style='font-size: 1.2rem;'>Arbitrary Oracle Function</label>
+                <label for='oracle-code' class='form-label display-6 fw-light text-body-emphasis'
+                    style='font-size: 1.2rem;'>Arbitrary Oracle Function</label>
                 <div class='btn-group rounded-top w-100' style='overflow-x: auto'>
                     <input type='radio' class='btn-check' name='inputOptions' id='inputCode' autocomplete='off' checked>
                     <label class='btn btn-sm btn-secondary' for='inputCode' onclick='showInputTab("code")'>Code</label>
 
                     <input type='radio' class='btn-check' name='inputOptions' id='inputTruthTable' autocomplete='off'>
-                    <label class='btn btn-sm btn-secondary' for='inputTruthTable' onclick='showInputTab("table")'>Truth Table</label>
+                    <label class='btn btn-sm btn-secondary' for='inputTruthTable' onclick='showInputTab("table")'>Truth
+                        Table</label>
 
                     <input type='radio' class='btn-check' name='inputOptions' id='inputSATInstance' autocomplete='off'>
-                    <label class='btn btn-sm btn-secondary' for='inputSATInstance' onclick='showInputTab("sat")'>SAT Instance</label>
+                    <label class='btn btn-sm btn-secondary' for='inputSATInstance' onclick='showInputTab("sat")'>SAT
+                        Instance</label>
                 </div>
                 <div id='inputTab-code' style="position: relative;">
                     <textarea id='oracle-code' class='form-control' rows='18'>
@@ -138,23 +145,27 @@ function oracle(A, B, C, D, E) {
     const value = t1 | t2 | t3 | t4 | t5 | t6 | t7;
     return !!value;
 }</textarea>
-                    <span id='errorIndicator' class='badge rounded-pill bg-danger' style='position: absolute; top: 8px; right: 12px; font-size: 0.7rem; padding: 0.2em 0.6em; letter-spacing: 0.02em; display: none;'>Error</span>
+                    <span id='errorIndicator' class='badge rounded-pill bg-danger'
+                        style='position: absolute; top: 8px; right: 12px; font-size: 0.7rem; padding: 0.2em 0.6em; letter-spacing: 0.02em; display: none;'>Error</span>
                 </div>
                 <div id='inputTab-table' style='display:none;'>
                     <div class='my-2 d-flex align-items-center'>
                         <label for='variable-list' class='form-label mb-0 me-2 flex-shrink-0'>Variables:</label>
-                        <input type='text' id='variable-list' class='form-control form-control-sm me-2' placeholder='A, B, C, D' value='A, B, C, D'
-                            onblur='updateTableVariableList()' onchange='updateTableVariableList()' style='max-width: 150px;'>
+                        <input type='text' id='variable-list' class='form-control form-control-sm me-2'
+                            placeholder='A, B, C, D' value='A, B, C, D' onblur='updateTableVariableList()'
+                            onchange='updateTableVariableList()' style='max-width: 150px;'>
                         <div class='btn-group ms-auto me-2' role='group'>
-                            <button type='button' class='btn btn-sm btn-secondary px-2' title='Fill selection with blank'
-                                onclick='fillTruthTableSelection("")'>–</button>
+                            <button type='button' class='btn btn-sm btn-secondary px-2'
+                                title='Fill selection with blank' onclick='fillTruthTableSelection("")'>–</button>
                             <button type='button' class='btn btn-sm btn-secondary px-2' title='Fill selection with 0'
                                 onclick='fillTruthTableSelection(0)'>0</button>
                             <button type='button' class='btn btn-sm btn-secondary px-2' title='Fill selection with 1'
                                 onclick='fillTruthTableSelection(1)'>1</button>
                         </div>
-                        <button type='button' class='btn btn-sm btn-secondary me-2' onclick='fillTruthTableRandom()'>Random</button>
-                        <button type='button' class='btn btn-sm btn-secondary' onclick='restoreInputTable()'>Restore</button>
+                        <button type='button' class='btn btn-sm btn-secondary me-2'
+                            onclick='fillTruthTableRandom()'>Random</button>
+                        <button type='button' class='btn btn-sm btn-secondary'
+                            onclick='restoreInputTable()'>Restore</button>
                     </div>
                     <div id='oracle-table' class='w-100'></div>
                 </div>
@@ -172,45 +183,75 @@ p cnf 5 6
                 </div>
             </div>
             <div class='col-12 col-lg-1 d-flex flex-column align-items-center justify-content-center'>
-                <button id='runButton' class='btn btn-secondary btn-sm w-100 mb-2 d-flex flex-column align-items-center justify-content-center' style='height: 5rem;' onclick='run()'>
+                <button id='runButton'
+                    class='btn btn-secondary btn-sm w-100 mb-2 d-flex flex-column align-items-center justify-content-center'
+                    style='height: 5rem;' onclick='run()'>
                     Run
                     <span style='font-size: 1.5rem;'>&rarr;</span>
                 </button>
-                <button id='copyButton' class='btn btn-secondary btn-sm w-100 d-flex flex-column align-items-center justify-content-center' style='height: 5rem;' onclick='copyOutputToInput()' disabled>
+                <button id='copyButton'
+                    class='btn btn-secondary btn-sm w-100 d-flex flex-column align-items-center justify-content-center'
+                    style='height: 5rem;' onclick='copyOutputToInput()' disabled>
                     Copy
                     <span style='font-size: 1.5rem;'>&larr;</span>
                 </button>
             </div>
             <div class='col-12 col-lg-5'>
-                <label for='output-code' class='form-label display-6 fw-light text-body-emphasis' style='font-size: 1.2rem;'>Minimal Logic (Karnaugh Map)</label>
+                <label for='output-code' class='form-label display-6 fw-light text-body-emphasis'
+                    style='font-size: 1.2rem;'>Minimal Logic (Quine-McCluskey)</label>
                 <div class='btn-group rounded-top w-100' style='overflow-x: auto'>
                     <input type='radio' class='btn-check' name='outputOptions' id='outputCircuit' autocomplete='off'>
-                    <label class='btn btn-sm btn-secondary' for='outputCircuit' onclick='showOutputTab("circuit")'>Logic Circuit</label>
+                    <label class='btn btn-sm btn-secondary' for='outputCircuit'
+                        onclick='showOutputTab("circuit")'>Circuit</label>
 
-                    <input type='radio' class='btn-check' name='outputOptions' id='outputCode' autocomplete='off' checked>
-                    <label class='btn btn-sm btn-secondary' for='outputCode' onclick='showOutputTab("code")'>Code</label>
+                    <input type='radio' class='btn-check' name='outputOptions' id='outputKMap' autocomplete='off'>
+                    <label class='btn btn-sm btn-secondary' for='outputKMap'
+                        onclick='showOutputTab("kmap")'>K-Map</label>
+
+                    <input type='radio' class='btn-check' name='outputOptions' id='outputCode' autocomplete='off'
+                        checked>
+                    <label class='btn btn-sm btn-secondary' for='outputCode'
+                        onclick='showOutputTab("code")'>Code</label>
 
                     <input type='radio' class='btn-check' name='outputOptions' id='outputTruthTable' autocomplete='off'>
-                    <label class='btn btn-sm btn-secondary' for='outputTruthTable' onclick='showOutputTab("table")'>Truth Table</label>
+                    <label class='btn btn-sm btn-secondary' for='outputTruthTable'
+                        onclick='showOutputTab("table")'>Truth Table</label>
 
-                    <input type='radio' class='btn-check' name='outputOptions' id='outputSATInstance' autocomplete='off'>
-                    <label class='btn btn-sm btn-secondary' for='outputSATInstance' onclick='showOutputTab("sat")'>SAT Instance</label>
+                    <input type='radio' class='btn-check' name='outputOptions' id='outputSATInstance'
+                        autocomplete='off'>
+                    <label class='btn btn-sm btn-secondary' for='outputSATInstance' onclick='showOutputTab("sat")'>SAT
+                        Instance</label>
                 </div>
                 <div class='my-2 d-flex align-items-center' style='gap: 0.5rem;'>
                     <div class='form-check form-switch d-flex align-items-center mb-0' style='margin-bottom:0;'>
-                        <input id='autoRunCheckbox' type='checkbox' class='form-check-input' style='margin-top:0;' checked
-                            onchange='checkAutoRunChanged()'>
-                        <label for='autoRunCheckbox' class='form-check-label mb-0 ms-2' style='font-size: 0.7rem;'>Run automatically</label>
+                        <input id='autoRunCheckbox' type='checkbox' class='form-check-input' style='margin-top:0;'
+                            checked onchange='checkAutoRunChanged()'>
+                        <label for='autoRunCheckbox' class='form-check-label mb-0 ms-2' style='font-size: 0.7rem;'>Run
+                            automatically</label>
                     </div>
                     <div class='form-check form-switch d-flex align-items-center mb-0' style='margin-bottom:0;'>
-                        <input id='maintainVarsCheckbox' type='checkbox' class='form-check-input' style='margin-top:0;' checked
-                            onchange='if(document.getElementById("autoRunCheckbox").checked) run();'>
-                        <label for='maintainVarsCheckbox' class='form-check-label mb-0 ms-2' style='font-size: 0.7rem;'>Maintain the same variable list</label>
+                        <input id='maintainVarsCheckbox' type='checkbox' class='form-check-input' style='margin-top:0;'
+                            checked onchange='if(document.getElementById("autoRunCheckbox").checked) run();'>
+                        <label for='maintainVarsCheckbox' class='form-check-label mb-0 ms-2'
+                            style='font-size: 0.7rem;'>Maintain the same variable list</label>
                     </div>
                     <div class='form-check form-switch d-flex align-items-center mb-0' style='margin-bottom:0;'>
-                        <input id='formCnfCheckbox' type='checkbox' class='form-check-input' style='margin-top:0;' checked
+                        <input id='formCnfCheckbox' type='checkbox' class='form-check-input' style='margin-top:0;'
                             onchange='toggleCNFDNF(); if(document.getElementById("autoRunCheckbox").checked) run();'>
-                        <label id='formCnfLabel' for='formCnfCheckbox' class='form-check-label mb-0 ms-2' style='font-size: 0.7rem;'>Form: CNF</label>
+                        <label id='formCnfLabel' for='formCnfCheckbox' class='form-check-label mb-0 ms-2'
+                            style='font-size: 0.7rem;'>Form: DNF</label>
+                    </div>
+                </div>
+                <div id='outputTab-kmap' style='display:none;'>
+                    <div class='p-2 rounded d-flex justify-content-center'
+                        style='border: 1px solid #444; background: #292E33;'>
+                        <table id='karnaughMapTable' style='margin: 0 auto;'></table>
+                    </div>
+                </div>
+                <div id='outputTab-circuit' style='display:none;'>
+                    <div class='p-2 rounded' style='border: 1px solid #444; background: #292E33;'>
+                        <canvas id='output-canvas' width='800' height='600'
+                            style='width: 100%; border-radius: 0.5rem; background: transparent; display: block;'></canvas>
                     </div>
                 </div>
                 <div id='outputTab-code'>
@@ -222,10 +263,10 @@ p cnf 5 6
                 <div id='outputTab-sat' style='display:none;'>
                     <textarea id='output-sat' class='form-control' rows='18' readonly></textarea>
                 </div>
-                <div id='outputTab-circuit' style='display:none;'>
-                    <div class='p-2 rounded-3' style='border: 1px solid #444; background: #20252a;'>
-                        <canvas id='output-canvas' width='800' height='600' style='width: 100%; border-radius: 0.5rem; background: transparent; display: block;'></canvas>
-                    </div>
+                <div class='mt-2'>
+                    <input type='text' id='output-expression' class='form-control form-control-sm text-center'
+                        style='background: transparent; color: #789fdd; border: none; padding: 0; font-size: 0.7rem;'
+                        readonly>
                 </div>
             </div>
         </div>
@@ -347,15 +388,17 @@ p cnf 5 6
 
         // CNF is true, DNF is false
         const isCNF = document.getElementById('formCnfCheckbox').checked;
-        let expression, satExpression;
-        
+        let expression, satExpression, kmapObject;
+
         if (isCNF) {
-            ({ js: expression, sat: satExpression } = QuineMcCluskey.solveCNF(variableNames, window.oracle));
+            ({ expr: expression, sat: satExpression, kmap: kmapObject } = QuineMcCluskey.solveCNF(variableNames, window.oracle, ['expr', 'sat', 'kmap']));
         } else {
-            ({ js: expression, sat: satExpression } = QuineMcCluskey.solveDNF(variableNames, window.oracle));
+            ({ expr: expression, sat: satExpression, kmap: kmapObject } = QuineMcCluskey.solveDNF(variableNames, window.oracle, ['expr', 'sat', 'kmap']));
         }
 
+        renderExpressionTextbox(expression);
         circuitExpression = expression.replace(/&&/g, '&').replace(/\|\|/g, '|');
+        kmapData = kmapObject;
         outputSat.setValue(satExpression);
 
         // Collect used vars from expression
@@ -366,7 +409,7 @@ p cnf 5 6
             const name = match[0];
             // Filter to original vars (skip literals)
             if (variableNames.includes(name) && name !== 'true' && name !== 'false') {
-            used.add(name);
+                used.add(name);
             }
         }
         // Only keep used variable names
@@ -385,6 +428,9 @@ p cnf 5 6
         outputTableNeedsUpdate = true;
         if (document.getElementById('outputTruthTable').checked) {
             setupOutputTable();
+        }
+        if (document.getElementById('outputKMap').checked) {
+            renderKarnaughMapTable();
         }
         if (document.getElementById('outputCircuit').checked) {
             renderLogicCircuit();
@@ -433,7 +479,7 @@ p cnf 5 6
         document.getElementById('inputTab-sat').style.display = (tab === 'sat') ? '' : 'none';
 
         if (tab === 'code' && editorCode) setTimeout(() => editorCode.refresh(), 0);
-        if (tab === 'sat'  && editorSat)  setTimeout(() => editorSat.refresh(), 0);
+        if (tab === 'sat' && editorSat) setTimeout(() => editorSat.refresh(), 0);
 
         document.getElementById('runButton').disabled = false;
     }
@@ -455,6 +501,12 @@ p cnf 5 6
         } else {
             document.getElementById('outputTab-circuit').style.display = 'none';
         }
+        if (tab === 'kmap') {
+            document.getElementById('outputTab-kmap').style.display = '';
+            renderKarnaughMapTable();
+        } else {
+            document.getElementById('outputTab-kmap').style.display = 'none';
+        }
 
         if (tab === 'code' && outputCode) setTimeout(() => outputCode.refresh(), 0);
         if (tab === 'sat' && outputSat) setTimeout(() => outputSat.refresh(), 0);
@@ -473,11 +525,19 @@ p cnf 5 6
     function toggleCNFDNF() {
         const isCNF = document.getElementById('formCnfCheckbox').checked;
         var label = document.getElementById("formCnfLabel");
-        if(isCNF) {
+        if (isCNF) {
             label.textContent = "Form: CNF";
         } else {
             label.textContent = "Form: DNF";
         }
+    }
+
+    function renderExpressionTextbox(jsExpression) {
+        let mathExpr = jsExpression.replace(/!([A-Za-z_][A-Za-z0-9_]*)/g, (m, v) => v + '\u0305');
+        mathExpr = mathExpr.replace(/\s*&&\s*/g, ' · ');
+        mathExpr = mathExpr.replace(/\s*\|\|\s*/g, ' + ');
+        const outputExpression = document.getElementById('output-expression');
+        outputExpression.value = mathExpr;
     }
 
     // Setup CodeMirror editors
@@ -524,29 +584,29 @@ p cnf 5 6
         const optionsOutputCode = { ...optionsOracleCode, readOnly: true };
         const optionsOutputSat = { ...optionsSAT, readOnly: true };
 
-		editorCode = CodeMirror.fromTextArea(document.getElementById('oracle-code'), optionsOracleCode);
+        editorCode = CodeMirror.fromTextArea(document.getElementById('oracle-code'), optionsOracleCode);
         editorSat = CodeMirror.fromTextArea(document.getElementById('oracle-sat'), optionsSAT);
-		outputCode = CodeMirror.fromTextArea(document.getElementById('output-code'), optionsOutputCode);
+        outputCode = CodeMirror.fromTextArea(document.getElementById('output-code'), optionsOutputCode);
         outputSat = CodeMirror.fromTextArea(document.getElementById('output-sat'), optionsOutputSat);
 
         editorCode.on('change', function (cMirror) {
-			if (document.getElementById('autoRunCheckbox').checked) run();
-		});
+            if (document.getElementById('autoRunCheckbox').checked) run();
+        });
 
         editorSat.on('change', function (cMirror) {
             if (document.getElementById('autoRunCheckbox').checked) run();
         });
-	}
+    }
 
     // Format the code editors
-	function formatCodeEditors() {
-		editorCode.autoFormatRange({ line: 0, ch: 0 }, { line: editorCode.lineCount() });
+    function formatCodeEditors() {
+        editorCode.autoFormatRange({ line: 0, ch: 0 }, { line: editorCode.lineCount() });
         editorSat.autoFormatRange({ line: 0, ch: 0 }, { line: editorSat.lineCount() });
-		outputCode.autoFormatRange({ line: 0, ch: 0 }, { line: outputCode.lineCount() });
+        outputCode.autoFormatRange({ line: 0, ch: 0 }, { line: outputCode.lineCount() });
         outputSat.autoFormatRange({ line: 0, ch: 0 }, { line: outputSat.lineCount() });
-	}
+    }
 
-    let truthTableValues = [], inputTruthTableVariableNames = [], circuitExpression = '';
+    let truthTableValues = [], inputTruthTableVariableNames = [], circuitExpression = '', kmapData = null;
 
     function updateTableVariableList() {
         const input = document.getElementById('variable-list');
@@ -692,25 +752,25 @@ p cnf 5 6
             contextMenu: false,
             licenseKey: 'non-commercial-and-evaluation'
         }
-        
+
         if (readonly) {
             options.readOnly = true;
         } else {
             options.readOnly = false;
-            
+
             // Only allow selection of the result column
-            options.beforeSetRangeStart = function(coords) {
+            options.beforeSetRangeStart = function (coords) {
                 if (coords.col !== variableNames.length) {
                     coords.col = variableNames.length;
                 }
             };
-            options.beforeSetRangeEnd = function(coords) {
+            options.beforeSetRangeEnd = function (coords) {
                 if (coords.col !== variableNames.length) {
                     coords.col = variableNames.length;
                 }
             };
             // Make variable columns read-only and custom renderer for result column
-            options.cells = function(row, col) {
+            options.cells = function (row, col) {
                 if (col !== variableNames.length) {
                     return { readOnly: true };
                 }
@@ -722,7 +782,7 @@ p cnf 5 6
             };
 
             // Handle result column changes and bulk fill
-            options.afterChange = function(changes, source) {
+            options.afterChange = function (changes, source) {
                 if (!changes) return;
                 const hotInstance = this;
                 const resultCol = variableNames.length;
@@ -791,6 +851,124 @@ p cnf 5 6
             color: '#FFFFFF'
         };
         LogicCircuitRenderer.render(circuitExpression, canvas, options);
+    }
+
+    function renderKarnaughMapTable() {
+        const table = document.getElementById('karnaughMapTable');
+        if (!table) return;
+        const { vars, kmap, groups = [] } = kmapData;
+        const { layout: { rowVars, colVars, rowGrayLabels, colGrayLabels }, values } = kmap;
+
+        // Axis captions
+        const rowCaption = rowVars.map(i => variableNames[i]).join('') || '—';
+        const colCaption = colVars.map(i => variableNames[i]).join('') || '—';
+        const bitsForCell = (rowIdx, colIdx) => {
+            const n = variableNames.length;
+            const bits = Array(n).fill('0');
+            for (let i = 0; i < rowVars.length; i++) {
+                bits[rowVars[i]] = rowGrayLabels[rowIdx][i] || '0';
+            }
+            for (let j = 0; j < colVars.length; j++) {
+                bits[colVars[j]] = colGrayLabels[colIdx][j] || '0';
+            }
+            return bits.join('');
+        };
+        // Check if bits match group pattern
+        const matchesPattern = (bits, pattern) => {
+            if (bits.length !== pattern.length) return false;
+            for (let i = 0; i < bits.length; i++) {
+                const p = pattern[i];
+                if (p !== '-' && p !== bits[i]) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        // Assign group index to each cell
+        const cellGroupIndices = Array.from({ length: rowGrayLabels.length }, () =>
+            Array(colGrayLabels.length).fill(-1)
+        );
+        for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
+            const { pattern } = groups[groupIdx];
+            for (let rowIdx = 0; rowIdx < rowGrayLabels.length; rowIdx++) {
+                for (let colIdx = 0; colIdx < colGrayLabels.length; colIdx++) {
+                    const bits = bitsForCell(rowIdx, colIdx);
+                    if (matchesPattern(bits, pattern) && cellGroupIndices[rowIdx][colIdx] === -1) {
+                        cellGroupIndices[rowIdx][colIdx] = groupIdx;
+                    }
+                }
+            }
+        }
+        // Cell background colors
+        const fixedColors = [
+            'rgba(66, 135, 245, 0.25)',
+            'rgba(245, 66, 93, 0.25)',
+            'rgba(66, 245, 167, 0.25)',
+            'rgba(245, 211, 66, 0.25)',
+            'rgba(171, 66, 245, 0.25)',
+            'rgba(245, 140, 66, 0.25)'
+        ];
+        // For more groups, generate colors using HSV
+        const groupColor = (idx, alpha = 0.25) => {
+            if (idx < fixedColors.length) return fixedColors[idx];
+            // Convert HSV to RGBA color
+            const hsvToRgba = (h, s, v, a) => {
+                const c = v * s;
+                const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+                const m = v - c;
+                let r = 0, g = 0, b = 0;
+                if (h < 60) {
+                    r = c; g = x; b = 0;
+                } else if (h < 120) {
+                    r = x; g = c; b = 0;
+                } else if (h < 180) {
+                    r = 0; g = c; b = x;
+                } else if (h < 240) {
+                    r = 0; g = x; b = c;
+                } else if (h < 300) {
+                    r = x; g = 0; b = c;
+                } else {
+                    r = c; g = 0; b = x;
+                }
+                const R = Math.round((r + m) * 255);
+                const G = Math.round((g + m) * 255);
+                const B = Math.round((b + m) * 255);
+                return `rgba(${R}, ${G}, ${B}, ${a})`;
+            };
+            const j = idx - fixedColors.length;
+            const hue = (j * 137.508) % 360; // golden angle for color distribution
+            return hsvToRgba(hue, 0.60, 0.95, alpha);
+        };
+        // Build table header
+        let theadHTML = '<thead>';
+        theadHTML += '<tr>';
+        theadHTML += `<th style="text-align:center; padding:4px;">
+            <div style="font-size:.75em; opacity:.8; white-space:nowrap;">${colCaption} &rarr;</div>
+            <div style="font-size:.75em; opacity:.8; white-space:nowrap;">${rowCaption} &darr;</div>
+
+        </th>`;
+        for (const colLabel of colGrayLabels) {
+            theadHTML += `<th style="text-align:center; font-family:monospace;">${colLabel}</th>`;
+        }
+        theadHTML += '</tr>';
+        theadHTML += '</thead>';
+        // Build table body
+        let tbodyHTML = '<tbody>';
+        for (let rowIdx = 0; rowIdx < rowGrayLabels.length; rowIdx++) {
+            tbodyHTML += '<tr>';
+            tbodyHTML += `<th style="text-align:center; font-family:monospace;">${rowGrayLabels[rowIdx]}</th>`;
+            for (let colIdx = 0; colIdx < colGrayLabels.length; colIdx++) {
+                const val = values[rowIdx][colIdx];
+                const groupIdx = cellGroupIndices[rowIdx][colIdx];
+                const bg = groupIdx >= 0 ? groupColor(groupIdx) : 'transparent';
+                const bits = bitsForCell(rowIdx, colIdx);
+                const title = `${bits} (${parseInt(bits, 2)})`;
+                tbodyHTML += `<td title="${title}" style="text-align:center; width:2.25em; height:2em; background:${bg}; font-family:monospace;">${val}</td>`;
+            }
+            tbodyHTML += '</tr>';
+        }
+        tbodyHTML += '</tbody>';
+        table.innerHTML = theadHTML + tbodyHTML;
     }
 
     function fillTruthTableSelection(value) {
@@ -922,7 +1100,7 @@ p cnf 5 6
     }`;
     }
 
-    window.onload = function() {
+    window.onload = function () {
         setupSampleCodeEditors();
     };
 </script>

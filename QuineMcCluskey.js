@@ -144,6 +144,90 @@ class BinomialCoefficients {
     }
 }
 
+class KarnaughMap {
+    // Gray-code ordering of length k (e.g., k=2 is ["00","01","11","10"])
+    static grayOrder(k) {
+        const out = [];
+        const limit = 1 << k;
+        for (let i = 0; i < limit; i++) {
+            const g = i ^ (i >> 1);
+            out.push(g.toString(2).padStart(k, '0'));
+        }
+        return out;
+    }
+
+    // Returns row/col variable indices for K-map layout (n <= 6: conventional split, n > 6: 3x3 max)
+    static kmapLayout(n) {
+        let split;
+        if (n <= 0) split = [0, 0];
+        else if (n === 1) split = [1, 0];
+        else if (n === 2) split = [1, 1];
+        else if (n === 3) split = [1, 2];
+        else if (n === 4) split = [2, 2];
+        else if (n === 5) split = [2, 3];
+        // If n >= 6: clamp to 3 by 3
+        else split = [3, Math.max(0, Math.min(3, n - 3))];
+        const rowVars = Array.from({ length: split[0] }, (_, i) => i);
+        const colVars = Array.from({ length: split[1] }, (_, i) => split[0] + i);
+        return { rowVars, colVars };
+    }
+
+    // Build a K-map: evaluates the oracle for all assignments in Gray code order.
+    static buildKMap(variableNames, oracleFunction) {
+        const n = variableNames.length;
+        const { rowVars, colVars } = KarnaughMap.kmapLayout(n);
+        const numRowVars = rowVars.length, numColVars = colVars.length;
+        const rowGrayLabels = KarnaughMap.grayOrder(numRowVars);
+        const colGrayLabels = KarnaughMap.grayOrder(numColVars);
+        const values = [];
+        for (let rowIdx = 0; rowIdx < rowGrayLabels.length; rowIdx++) {
+            const rowVals = [];
+            for (let colIdx = 0; colIdx < colGrayLabels.length; colIdx++) {
+                const bitArray = Array(n).fill('0');
+                // Place row/col Gray bits into variable positions
+                for (let i = 0; i < numRowVars; i++) {
+                    bitArray[rowVars[i]] = rowGrayLabels[rowIdx][i] || '0';
+                }
+                for (let j = 0; j < numColVars; j++) {
+                    bitArray[colVars[j]] = colGrayLabels[colIdx][j] || '0';
+                }
+                const inputAssignment = bitArray.map(b => b === '1');
+                let oracleValue;
+                try {
+                    oracleValue = oracleFunction(...inputAssignment);
+                } catch (e) {
+                    oracleValue = false;
+                }
+                const cellValue = (oracleValue === true) ? 1 : (oracleValue === false) ? 0 : 'X';
+                rowVals.push(cellValue);
+            }
+            values.push(rowVals);
+        }
+        // Return the K-map structure for table rendering
+        return {
+            layout: { rowVars, colVars, rowGrayLabels, colGrayLabels },
+            values
+        };
+    }
+
+    // Return array of [rowIdx, colIdx] pairs whose reconstructed bitstrings match the given Quine–McCluskey pattern (e.g., "1-0-") using the provided K-map object from buildKMap.
+    static patternToCoveredCells(pattern, kmap) {
+        const { rowVars, colVars, rowGrayLabels, colGrayLabels } = kmap.layout;
+        const n = rowVars.length + colVars.length;
+        const re = new RegExp('^' + pattern.replace(/-/g, '[01]') + '$');
+        const out = [];
+        for (let r = 0; r < rowGrayLabels.length; r++) {
+            for (let c = 0; c < colGrayLabels.length; c++) {
+                const bits = Array(n).fill('0');
+                for (let i = 0; i < rowVars.length; i++) bits[rowVars[i]] = rowGrayLabels[r][i] || '0';
+                for (let j = 0; j < colVars.length; j++) bits[colVars[j]] = colGrayLabels[c][j] || '0';
+                if (re.test(bits.join(''))) out.push([r, c]);
+            }
+        }
+        return out;
+    }
+}
+
 class QuineMcCluskey {
 
     static defaultVarNames(n) {
@@ -285,18 +369,6 @@ class QuineMcCluskey {
         return levels;
     }
 
-    // Create an oracle function that returns the complement of the given oracle function
-    static oracleForComplement(oracleFunction) {
-        return (...inputBits) => {
-            let v = false;
-            try {
-                v = oracleFunction(...inputBits);
-            } catch (e) {}
-            if (v === undefined) return undefined;
-            return (v === false);
-        };
-    }
-
     // Count non-don't-care literals in a pattern
     static countLiteralsInPattern(pattern) {
         let c = 0;
@@ -400,7 +472,24 @@ class QuineMcCluskey {
         return best || new Set();
     }
 
-    static solveCNF(variableNames, oracleFunction) {
+    // Create an oracle function that returns the complement of the given oracle function
+    static oracleForComplement(oracleFunction) {
+        return (...inputBits) => {
+            let v = false;
+            try {
+                v = oracleFunction(...inputBits);
+            } catch (e) { }
+            if (v === undefined) return undefined;
+            return (v === false);
+        };
+    }
+
+
+
+    /******************************************************************************/
+    /*                                   CNF                                      */
+    /******************************************************************************/
+    static solveCNF(variableNames, oracleFunction, outputs = ['expr', 'sat', 'kmap']) {
         const maxterms = [];
         const initialImplicants = [];
 
@@ -439,16 +528,16 @@ class QuineMcCluskey {
         const essentialBits = new Set(QuineMcCluskey.getEssentialPrimeImplicants(coverageChart));
 
         const clauseFromPattern = (pattern) => {
-            const jsTokens = [];
+            const tokens = [];
             for (let i = 0; i < pattern.length; i++) {
                 const bit = pattern[i];
                 if (bit === '-') continue;
                 const varName = variableNames[i] || ('V' + i);
-                jsTokens.push(bit === '0' ? varName : '!' + varName);
+                tokens.push(bit === '0' ? varName : '!' + varName);
             }
-            if (!jsTokens.length) return ''; // Empty clause is false
-            if (jsTokens.length === 1) return jsTokens[0];
-            return jsTokens.join(' || ');
+            if (!tokens.length) return ''; // Empty clause is false
+            if (tokens.length === 1) return tokens[0];
+            return tokens.join(' || ');
         };
 
         const primeImplicantsExpanded = primeImplicantsBits.map(pattern => {
@@ -461,7 +550,7 @@ class QuineMcCluskey {
             }
             return {
                 pattern,
-                jsClause: clauseFromPattern(pattern),
+                clause: clauseFromPattern(pattern),
                 covers,
                 essential: essentialBits.has(pattern)
             };
@@ -487,54 +576,86 @@ class QuineMcCluskey {
         const chosenSet = new Set([...essentialSet, ...petrickChosen]);
         const chosenExpanded = primeImplicantsExpanded.filter(pi => chosenSet.has(pi.pattern));
 
-        // If there are no maxterms (tautology) then CNF is true; if any chosen clause is empty (all '-') then CNF is false
-        const hasEmptyClause = chosenExpanded.some(pi => pi.jsClause === '');
-        let jsExpression;
-        if (hasEmptyClause) {
-            jsExpression = 'false';
-        } else if (maxtermsSorted.length === 0) {
-            jsExpression = 'true';
-        } else {
-            const partsRaw = chosenExpanded.map(pi => pi.jsClause);
-            if (partsRaw.length === 1) {
-                // Single clause
-                jsExpression = partsRaw[0];
+        let expr, cnfCode;
+
+        if (outputs.includes('expr')) {
+            // If there are no maxterms (tautology) then CNF is true; if any chosen clause is empty (all '-') then CNF is false
+            const hasEmptyClause = chosenExpanded.some(pi => pi.clause === '');
+            if (hasEmptyClause) {
+                expr = 'false';
+            } else if (maxtermsSorted.length === 0) {
+                expr = 'true';
             } else {
-                // Multiple clauses
-                const parts = partsRaw.map(c => (c.includes('||') ? '(' + c + ')' : c));
-                jsExpression = parts.join(' && ');
+                const partsRaw = chosenExpanded.map(pi => pi.clause);
+                if (partsRaw.length === 1) {
+                    // Single clause
+                    expr = partsRaw[0];
+                } else {
+                    // Multiple clauses
+                    const parts = partsRaw.map(c => (c.includes('||') ? '(' + c + ')' : c));
+                    expr = parts.join(' && ');
+                }
             }
         }
 
-        // Also generate SAT instance in DIMACS CNF format
-        const varCount = variableNames.length;
-        let cnfClauses = [];
-        if (hasEmptyClause) {
-            cnfClauses = ['0'];
-        } else {
-            cnfClauses = chosenExpanded.map(pi => {
-                if (pi.jsClause === '') return '0';
-                const lits = [];
-                for (let i = 0; i < pi.pattern.length; i++) {
-                    const bit = pi.pattern[i];
-                    if (bit === '-') continue;
-                    const idx = i + 1;
-                    lits.push(bit === '0' ? idx : -idx);
-                }
-                return lits.join(' ') + ' 0';
-            });
+        if (outputs.includes('sat')) {
+            // Also generate SAT instance in DIMACS CNF format
+            const varCount = variableNames.length;
+            let cnfClauses = [];
+            const hasEmptyClause = chosenExpanded.some(pi => pi.clause === '');
+            if (hasEmptyClause) {
+                cnfClauses = ['0'];
+            } else {
+                cnfClauses = chosenExpanded.map(pi => {
+                    if (pi.clause === '') return '0';
+                    const lits = [];
+                    for (let i = 0; i < pi.pattern.length; i++) {
+                        const bit = pi.pattern[i];
+                        if (bit === '-') continue;
+                        const idx = i + 1;
+                        lits.push(bit === '0' ? idx : -idx);
+                    }
+                    return lits.join(' ') + ' 0';
+                });
+            }
+            cnfCode = `p cnf ${varCount} ${cnfClauses.length}\n${cnfClauses.join('\n')}`;
         }
-        const cnfCode =
-            `p cnf ${varCount} ${cnfClauses.length}\n` +
-            cnfClauses.join('\n');
 
-        return {
-            js: jsExpression,
-            sat: cnfCode
-        };
+        // Karnaugh map (K-map) groups for the chosen CNF clauses
+        let kmapData;
+        if (outputs.includes('kmap')) {
+            const used = new Set();
+            for (const pi of chosenExpanded) {
+                for (let i = 0; i < pi.pattern.length; i++) {
+                    if (pi.pattern[i] !== '-') used.add(variableNames[i] || ('V' + i));
+                }
+            }
+            const vars = variableNames.filter(v => used.has(v));
+            const kmap = KarnaughMap.buildKMap(vars, oracleFunction);
+            const groups = chosenExpanded.map(pi => ({
+                kind: 'clause',
+                pattern: pi.pattern
+            }));
+            kmapData = { 
+                kmap, 
+                groups, 
+                vars
+            };
+        }
+
+        const result = {};
+        if (outputs.includes('expr')) result.expr = expr;
+        if (outputs.includes('sat')) result.sat = cnfCode;
+        if (outputs.includes('kmap')) result.kmap = kmapData;
+        return result;
     }
 
-    static solveDNF(variableNames, oracleFunction) {
+
+
+    /******************************************************************************/
+    /*                                   DNF                                      */
+    /******************************************************************************/
+    static solveDNF(variableNames, oracleFunction, outputs = ['expr', 'sat', 'kmap']) {
         const minterms = [];
         const initialImplicants = [];
 
@@ -573,16 +694,16 @@ class QuineMcCluskey {
         const essentialBits = new Set(QuineMcCluskey.getEssentialPrimeImplicants(coverageChart));
 
         const termFromPattern = (pattern) => {
-            const jsTokens = [];
+            const tokens = [];
             for (let i = 0; i < pattern.length; i++) {
                 const bit = pattern[i];
                 if (bit === '-') continue;
                 const varName = variableNames[i] || ('V' + i);
-                jsTokens.push(bit === '1' ? varName : '!' + varName);
+                tokens.push(bit === '1' ? varName : '!' + varName);
             }
-            if (!jsTokens.length) return ''; // Empty term is true
-            if (jsTokens.length === 1) return jsTokens[0];
-            return jsTokens.join(' && ');
+            if (!tokens.length) return ''; // Empty term is true
+            if (tokens.length === 1) return tokens[0];
+            return tokens.join(' && ');
         };
 
         const primeImplicantsExpanded = primeImplicantsBits.map(pattern => {
@@ -595,7 +716,7 @@ class QuineMcCluskey {
             }
             return {
                 pattern,
-                jsTerm: termFromPattern(pattern),
+                term: termFromPattern(pattern),
                 covers,
                 essential: essentialBits.has(pattern)
             };
@@ -621,50 +742,77 @@ class QuineMcCluskey {
         const chosenSet = new Set([...essentialSet, ...petrickChosen]);
         const chosenExpanded = primeImplicantsExpanded.filter(pi => chosenSet.has(pi.pattern));
 
-        // If there are no minterms (contradiction) then DNF is false; if any chosen term is empty (all '-') then DNF is true
-        const hasEmptyTerm = chosenExpanded.some(pi => pi.jsTerm === '');
-        let jsExpression;
-        if (hasEmptyTerm) {
-            jsExpression = 'true';
-        } else if (mintermsSorted.length === 0) {
-            jsExpression = 'false';
-        } else {
-            const partsRaw = chosenExpanded.map(pi => pi.jsTerm);
-            if (partsRaw.length === 1) {
-                // Single term
-                jsExpression = partsRaw[0];
+        let expr, dnfCode;
+
+        if (outputs.includes('expr')) {
+            // If there are no minterms (contradiction) then DNF is false; if any chosen term is empty (all '-') then DNF is true
+            const hasEmptyTerm = chosenExpanded.some(pi => pi.term === '');
+            if (hasEmptyTerm) {
+                expr = 'true';
+            } else if (mintermsSorted.length === 0) {
+                expr = 'false';
             } else {
-                // Multiple terms
-                const parts = partsRaw.map(t => (t.includes('&&') ? '(' + t + ')' : t));
-                jsExpression = parts.join(' || ');
+                const partsRaw = chosenExpanded.map(pi => pi.term);
+                if (partsRaw.length === 1) {
+                    // Single term
+                    expr = partsRaw[0];
+                } else {
+                    // Multiple terms
+                    const parts = partsRaw.map(t => (t.includes('&&') ? '(' + t + ')' : t));
+                    expr = parts.join(' || ');
+                }
             }
         }
 
-        // Also generate SAT instance in DIMACS DNF format
-        const varCount = variableNames.length;
-        let dnfClauses = [];
-        if (hasEmptyTerm) {
-            dnfClauses = ['0'];
-        } else {
-            dnfClauses = chosenExpanded.map(pi => {
-                if (pi.jsTerm === '') return '0';
-                const lits = [];
-                for (let i = 0; i < pi.pattern.length; i++) {
-                    const bit = pi.pattern[i];
-                    if (bit === '-') continue;
-                    const idx = i + 1;
-                    lits.push(bit === '1' ? idx : -idx);
-                }
-                return lits.join(' ') + ' 0';
-            });
+        if (outputs.includes('sat')) {
+            // Also generate SAT instance in DIMACS DNF format
+            const varCount = variableNames.length;
+            let dnfClauses = [];
+            const hasEmptyTerm = chosenExpanded.some(pi => pi.term === '');
+            if (hasEmptyTerm) {
+                dnfClauses = ['0'];
+            } else {
+                dnfClauses = chosenExpanded.map(pi => {
+                    if (pi.term === '') return '0';
+                    const lits = [];
+                    for (let i = 0; i < pi.pattern.length; i++) {
+                        const bit = pi.pattern[i];
+                        if (bit === '-') continue;
+                        const idx = i + 1;
+                        lits.push(bit === '1' ? idx : -idx);
+                    }
+                    return lits.join(' ') + ' 0';
+                });
+            }
+            dnfCode = `p dnf ${varCount} ${dnfClauses.length}\n${dnfClauses.join('\n')}`;
         }
-        const dnfCode =
-            `p dnf ${varCount} ${dnfClauses.length}\n` +
-            dnfClauses.join('\n');
 
-        return {
-            js: jsExpression,
-            sat: dnfCode
-        };
+        // Karnaugh map (K-map) groups for the chosen CNF clauses
+        let kmapData;
+        if (outputs.includes('kmap')) {
+            const used = new Set();
+            for (const pi of chosenExpanded) {
+                for (let i = 0; i < pi.pattern.length; i++) {
+                    if (pi.pattern[i] !== '-') used.add(variableNames[i] || ('V' + i));
+                }
+            }
+            const vars = variableNames.filter(v => used.has(v));
+            const kmap = KarnaughMap.buildKMap(vars, oracleFunction);
+            const groups = chosenExpanded.map(pi => ({
+                kind: 'term',
+                pattern: pi.pattern
+            }));
+            kmapData = { 
+                kmap, 
+                groups, 
+                vars
+            };
+        }
+
+        const result = {};
+        if (outputs.includes('expr')) result.expr = expr;
+        if (outputs.includes('sat')) result.sat = dnfCode;
+        if (outputs.includes('kmap')) result.kmap = kmapData;
+        return result;
     }
 }

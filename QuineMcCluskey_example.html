@@ -9,8 +9,8 @@
 <body>
   <h1>Quine-McCluskey</h1>
   <textarea id='input' style='width:500px;' rows='11' readonly></textarea><br>
-  <textarea id='outputDNF' style='width:500px;' rows='7' readonly placeholder="DNF Output"></textarea><br>
-  <textarea id='outputCNF' style='width:500px;' rows='7' readonly placeholder="CNF Output"></textarea>
+  <textarea id='outputDNF' style='width:500px;' rows='15' readonly placeholder="DNF Output"></textarea><br>
+  <textarea id='outputCNF' style='width:500px;' rows='13' readonly placeholder="CNF Output"></textarea>
 
   <script src='QuineMcCluskey.js' type='text/javascript'></script>
 
@@ -29,20 +29,22 @@
       return !!value;
     }
 
-    const dnf = QuineMcCluskey.solveDNF(['A', 'B', 'C', 'D', 'E'], inputOracleFunction);
+    const dnf = QuineMcCluskey.solveDNF(['A', 'B', 'C', 'D', 'E'], inputOracleFunction, ['expr', 'sat', 'kmap']);
 
     let resultDNF = '';
-    resultDNF += 'DNF OUTPUT EXPRESSION:\n' + dnf.js + '\n\n';
-    resultDNF += 'DNF OUTPUT DIMACS SAT:\n' + dnf.sat;
+    resultDNF += 'DNF OUTPUT EXPRESSION:\n' + dnf.expr + '\n\n';
+    resultDNF += 'DNF OUTPUT DIMACS SAT:\n' + dnf.sat + '\n\n';
+    resultDNF += 'DNF OUTPUT KMAP:\n' + JSON.stringify(dnf.kmap);
     document.getElementById('outputDNF').value = resultDNF;
 
-    const cnf = QuineMcCluskey.solveCNF(['A', 'B', 'C', 'D', 'E'], inputOracleFunction);
+    const cnf = QuineMcCluskey.solveCNF(['A', 'B', 'C', 'D', 'E'], inputOracleFunction, ['expr', 'sat', 'kmap']);
 
     let resultCNF = '';
-    resultCNF += 'CNF OUTPUT EXPRESSION:\n' + cnf.js + '\n\n';
-    resultCNF += 'CNF OUTPUT DIMACS SAT:\n' + cnf.sat;
+    resultCNF += 'CNF OUTPUT EXPRESSION:\n' + cnf.expr + '\n\n';
+    resultCNF += 'CNF OUTPUT DIMACS SAT:\n' + cnf.sat + '\n\n';
+    resultCNF += 'CNF OUTPUT KMAP:\n' + JSON.stringify(cnf.kmap);
     document.getElementById('outputCNF').value = resultCNF;
-    
+
     document.getElementById('input').value = inputOracleFunction.toString().replace(/\n {4}/g, '\n');
   </script>
 </body>
