@@ -103,6 +103,11 @@
             accent-color: #FFCC00;
             filter: invert(0.9) hue-rotate(180deg);
         }
+
+        .handsontable span.colHeader.columnSorting.descending:before,
+        .handsontable span.colHeader.columnSorting.ascending:before {
+            filter: invert(1) hue-rotate(180deg);
+        }
     </style>
 
 </head>
@@ -126,24 +131,24 @@
                         Instance</label>
                 </div>
                 <div id='inputTab-code' style='position: relative;'>
-                    <textarea id='oracle-code' class='form-control' rows='18'>
+                    <textarea id='oracle-code' class='form-control' hidden>
 function oracle(A, B, C, D, E) {
-    // Wikipedia Example
-    const n = [A, B, C, D].reduce((index, bit) => index * 2 + (bit ? 1 : 0), 0); // Pack boolean inputs into an integer index
-    if ([4, 8, 10, 11, 12, 15].includes(n)) return true;
-    if ([9, 14].includes(n)) return undefined; // Don't cares
-    return false;
+  const n = [A, B, C, D].reduce((index, bit) => index * 2 + (bit ? 1 : 0), 0); // Pack boolean inputs into an integer
   
-  	// Another example
-    const t1 = (((D & 1) | ((B ^ 1) & D)) ^ 1);
-    const t2 = (A & (B | (B ^ 1)));
-    const t3 = (A & (C ^ 1));
-    const t4 = (A & C);
-    const t5 = ((D ^ 1) & B & (B ^ 1));
-    const t6 = (D & 0);
-    const t7 = (((B & 0) | ((B ^ 1) & 0)) & D);
-    const value = t1 | t2 | t3 | t4 | t5 | t6 | t7;
-    return !!value;
+  if ([1, 4, 6, 9, 10, 11, 12, 15].includes(n)) return true;
+  if ([9, 14].includes(n)) return undefined; // Don't cares
+  return false;
+  
+  // Another example
+  const t1 = (((D & 1) | ((B ^ 1) & D)) ^ 1);
+  const t2 = (A & (B | (B ^ 1)));
+  const t3 = (A & (C ^ 1));
+  const t4 = (A & C);
+  const t5 = ((D ^ 1) & B & (B ^ 1));
+  const t6 = (D & 0);
+  const t7 = (((B & 0) | ((B ^ 1) & 0)) & D);
+  const value = t1 | t2 | t3 | t4 | t5 | t6 | t7;
+  return !!value;
 }</textarea>
                     <span id='errorIndicator' class='badge rounded-pill bg-danger'
                         style='position: absolute; top: 8px; right: 12px; font-size: 0.7rem; padding: 0.2em 0.6em; letter-spacing: 0.02em; display: none;'>Error</span>
@@ -170,7 +175,7 @@ function oracle(A, B, C, D, E) {
                     <div id='oracle-table' class='w-100'></div>
                 </div>
                 <div id='inputTab-sat' style='display:none;'>
-                    <textarea id='oracle-sat' class='form-control' rows='18'>
+                    <textarea id='oracle-sat' class='form-control' hidden>
 c DIMACS CNF format
 p cnf 5 6
 1 2 3 4 5 0
@@ -184,7 +189,7 @@ p cnf 5 6
             </div>
             <div class='col-12 col-lg-1 d-flex flex-column align-items-center justify-content-center'>
                 <button id='runButton'
-                    class='btn btn-secondary btn-sm w-100 mb-2 d-flex flex-column align-items-center justify-content-center'
+                    class='btn btn-secondary btn-sm w-100 mt-4 mb-2 d-flex flex-column align-items-center justify-content-center'
                     style='height: 5rem;' onclick='run()'>
                     Run
                     <span style='font-size: 1.5rem;'>&rarr;</span>
@@ -204,12 +209,11 @@ p cnf 5 6
                     <label class='btn btn-sm btn-secondary' for='outputCircuit'
                         onclick='showOutputTab("circuit")'>Circuit</label>
 
-                    <input type='radio' class='btn-check' name='outputOptions' id='outputKMap' autocomplete='off'>
+                    <input type='radio' class='btn-check' name='outputOptions' id='outputKMap' autocomplete='off' checked>
                     <label class='btn btn-sm btn-secondary' for='outputKMap'
                         onclick='showOutputTab("kmap")'>K-Map</label>
 
-                    <input type='radio' class='btn-check' name='outputOptions' id='outputCode' autocomplete='off'
-                        checked>
+                    <input type='radio' class='btn-check' name='outputOptions' id='outputCode' autocomplete='off'>
                     <label class='btn btn-sm btn-secondary' for='outputCode'
                         onclick='showOutputTab("code")'>Code</label>
 
@@ -236,16 +240,16 @@ p cnf 5 6
                             style='font-size: 0.7rem;'>Maintain the same variable list</label>
                     </div>
                     <div class='form-check form-switch d-flex align-items-center mb-0' style='margin-bottom:0;'>
-                        <input id='formCnfCheckbox' type='checkbox' class='form-check-input' style='margin-top:0;'
+                        <input id='formCnfDnfCheckbox' type='checkbox' class='form-check-input' style='margin-top:0;'
                             onchange='toggleCNFDNF(); if(document.getElementById("autoRunCheckbox").checked) run();'>
-                        <label id='formCnfLabel' for='formCnfCheckbox' class='form-check-label mb-0 ms-2'
+                        <label id='formCnfDnfLabel' for='formCnfDnfCheckbox' class='form-check-label mb-0 ms-2'
                             style='font-size: 0.7rem;'>Form: DNF</label>
                     </div>
                 </div>
                 <div id='outputTab-kmap' style='display:none;'>
                     <div class='p-2 rounded d-flex justify-content-center'
                         style='border: 1px solid #444; background: #292E33;'>
-                        <canvas id='karnaughMapCanvas' width='800' height='600'
+                        <canvas id='karnaughMapCanvas' width='800' height='450'
                             style='width: 100%; border-radius: 0.5rem; background: transparent; display: block;'></canvas>
                     </div>
                 </div>
@@ -256,13 +260,13 @@ p cnf 5 6
                     </div>
                 </div>
                 <div id='outputTab-code'>
-                    <textarea id='output-code' class='form-control' rows='18' readonly></textarea>
+                    <textarea id='output-code' class='form-control' hidden readonly></textarea>
                 </div>
                 <div id='outputTab-table' style='display:none;'>
                     <div id='output-table' class='w-100'></div>
                 </div>
                 <div id='outputTab-sat' style='display:none;'>
-                    <textarea id='output-sat' class='form-control' rows='18' readonly></textarea>
+                    <textarea id='output-sat' class='form-control' hidden readonly></textarea>
                 </div>
                 <div class='mt-2'>
                     <input type='text' id='output-expression' class='form-control form-control-sm text-center'
@@ -373,7 +377,7 @@ p cnf 5 6
         runTimeout = setTimeout(() => {
             runTimeout = null;
             _run();
-        }, 50);
+        }, 100);
     }
 
     function _run() {
@@ -386,7 +390,7 @@ p cnf 5 6
         variableNames = (parsedNames.length ? parsedNames : QuineMcCluskey.defaultVarNames(parsedNames.length));
 
         // CNF is true, DNF is false
-        const isCNF = document.getElementById('formCnfCheckbox').checked;
+        const isCNF = document.getElementById('formCnfDnfCheckbox').checked;
         let output, kmapObject, outputs = ['expr', 'sat'];
 
         if (document.getElementById('outputKMap').checked) outputs.push('kmap');
@@ -548,8 +552,8 @@ p cnf 5 6
     }
 
     function toggleCNFDNF() {
-        const isCNF = document.getElementById('formCnfCheckbox').checked;
-        var label = document.getElementById('formCnfLabel');
+        const isCNF = document.getElementById('formCnfDnfCheckbox').checked;
+        var label = document.getElementById('formCnfDnfLabel');
         if (isCNF) {
             label.textContent = 'Form: CNF';
         } else {
@@ -805,6 +809,18 @@ p cnf 5 6
         let options = {
             data,
             columns,
+            columnSorting: {
+                sortEmptyCells: true,
+                indicator: true,
+                headerAction: true,
+                compareFunctionFactory(sortOrder, columnMeta) {
+                    return function (value, nextValue) {
+                        const rank = v => (v === '' || v == null) ? 0 : v ? 1 : 2;
+                        const result = rank(value) - rank(nextValue);
+                        return sortOrder === 'asc' ? result : -result;
+                    };
+                },
+            },
             colHeaders: headers,
             rowHeaders: enableRowHeader,
             rowHeaderWidth: enableRowHeader ? rowHeaderWidth : undefined,
@@ -820,20 +836,38 @@ p cnf 5 6
 
         if (readonly) {
             options.readOnly = true;
+
+            options.afterSelectionEnd = function (rowStart, colStart, rowEnd, colEnd) {
+                // Undo sorting if top-left corner cell is selected
+                if (rowStart === -1 && rowEnd === this.countRows() - 1 && colStart === -1 && colEnd === this.countCols() - 1) {
+                    this.getPlugin('columnSorting').clearSort();
+                }
+            };
         } else {
             options.readOnly = false;
-
             // Only allow selection of the result column
             options.beforeSetRangeStart = function (coords) {
-                if (coords.col !== variableNames.length) {
-                    coords.col = variableNames.length;
-                }
+                coords.col = variableNames.length;
             };
+
             options.beforeSetRangeEnd = function (coords) {
-                if (coords.col !== variableNames.length) {
-                    coords.col = variableNames.length;
+                coords.col = variableNames.length;
+            };
+
+            // Prevent selecting other columns in mouse drag
+            options.afterSelection = function (row, col, row2, col2) {
+                const resultCol = variableNames.length;
+                if (row === -1) {
+                    // Undo sorting if top-left corner cell is selected
+                    if (col === -1 || col2 === -1) {
+                        this.getPlugin('columnSorting').clearSort();
+                    }
+                    this.selectCell(0, resultCol, this.countRows() - 1, resultCol, false, false);
+                } else if (col !== resultCol || col2 !== resultCol) {
+                    this.selectCell(row, resultCol, row2, resultCol, false, false);
                 }
             };
+
             // Make variable columns read-only and custom renderer for result column
             options.cells = function (row, col) {
                 if (col !== variableNames.length) {
@@ -843,7 +877,7 @@ p cnf 5 6
 
             // Store last selection for bulk edit
             options.afterSelectionEnd = function (rowStart, colStart, rowEnd, colEnd) {
-                this._lastSelection = { rowStart, colStart, rowEnd, colEnd };
+                this._lastSelection = { rowStart, colStart: variableNames.length, rowEnd, colEnd: variableNames.length };
             };
 
             // Handle result column changes and bulk fill
@@ -962,7 +996,7 @@ p cnf 5 6
         const cellGroupMap = Array.from({ length: rowGrayLabels.length }, () =>
             Array(colGrayLabels.length).fill(-1)
         );
-        const DNF_CNF_VALUE_ONE = document.getElementById('formCnfCheckbox').checked ? 0 : 1;
+        const DNF_CNF_VALUE_ONE = document.getElementById('formCnfDnfCheckbox').checked ? 0 : 1;
         for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
             const { pattern } = groups[groupIdx];
             for (let rowIdx = 0; rowIdx < rowGrayLabels.length; rowIdx++) {
@@ -1081,6 +1115,7 @@ p cnf 5 6
         }
         // Row Gray labels
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
         for (let row = 0; row < rowGrayLabels.length; row++) {
             const y = topHeaderHeight + row * cellHeight + cellHeight / 2;
             ctx.fillText(rowGrayLabels[row], leftHeaderWidth / 2, y);
@@ -1116,19 +1151,37 @@ p cnf 5 6
             ctx.stroke();
         }
 
-        // Cell values
-        ctx.fillStyle = '#FFFFFF';
         ctx.font = font;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         for (let row = 0; row < rowGrayLabels.length; row++) {
             for (let col = 0; col < colGrayLabels.length; col++) {
                 const { x, y, w, h } = getCellRect(row, col);
-                ctx.fillText(String(values[row][col]), x + w / 2, y + h / 2);
+                const value = values[row][col];
+                if (value === 'X') {
+                    // Draw an X for don't care cells spanning the entire cell
+                    ctx.save();
+                    ctx.strokeStyle = '#34393f';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x + 2, y + 2);
+                    ctx.lineTo(x + w - 2, y + h - 2);
+                    ctx.moveTo(x + w - 2, y + 2);
+                    ctx.lineTo(x + 2, y + h - 2);
+                    ctx.stroke();
+                    ctx.fillStyle = '#BBBBBB';
+                    ctx.beginPath();
+                    ctx.arc(x + w / 2, y + h / 2, 1, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.restore();
+                } else {
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillText(String(value), x + w / 2, y + h / 2);
+                }
             }
         }
         // Group outlines options
-        const outlineStrokeWidth = 6;
+        const outlineStrokeWidth = 4;
         const groupPadding = 5;
         const radius = 30;
         const gridOriginX = leftHeaderWidth;
@@ -1367,6 +1420,7 @@ p cnf 5 6
 
     window.onload = function () {
         setupSampleCodeEditors();
+        showOutputTab('kmap');
         run();
     };
 </script>

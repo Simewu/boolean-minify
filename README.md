@@ -6,7 +6,10 @@ Canonical form: A standard representation used to demonstrate equivalence betwee
 
 This browser-based tool simplifies Boolean expressions by converting them to their canonical form. It accepts a JavaScript oracle function, truth table, or DIMACS SAT instance (DNF or CNF) and produces a minimized JavaScript function, truth table, DIMACS SAT instance, logic circuit diagram, or Karnaugh map.
 
-![](lib/screenshot.png)
+<a href="https://simewu.github.io/boolean-minify" target="_blank">
+    <img src="lib/screenshot1.png" alt="Screenshot 1" />
+    <img src="lib/screenshot2.png" alt="Screenshot 2" />
+</a>
 
 Minimization uses the Quine-McCluskey algorithm, which is NP-complete and runs in exponential time complexity.
 
