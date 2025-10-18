@@ -706,7 +706,7 @@ p cnf 5 6
     }
 
     // https://github.com/Simewu/blockchain-simulator/blob/main/index.html#L689
-    const sha256 = function a(b) { function c(a, b) { return a >>> b | a << 32 - b } for (var d, e, f = Math.pow, g = f(2, 32), h = 'length', i = '', j = [], k = 8 * b[h], l = a.h = a.h || [], m = a.k = a.k || [], n = m[h], o = {}, p = 2; 64 > n; p++)if (!o[p]) { for (d = 0; 313 > d; d += p)o[d] = p; l[n] = f(p, .5) * g | 0, m[n++] = f(p, 1 / 3) * g | 0 } for (b += '\x80'; b[h] % 64 - 56;)b += '\x00'; for (d = 0; d < b[h]; d++) { if (e = b.charCodeAt(d), e >> 8) return; j[d >> 2] |= e << (3 - d) % 4 * 8 } for (j[j[h]] = k / g | 0, j[j[h]] = k, e = 0; e < j[h];) { var q = j.slice(e, e += 16), r = l; for (l = l.slice(0, 8), d = 0; 64 > d; d++) { var s = q[d - 15], t = q[d - 2], u = l[0], v = l[4], w = l[7] + (c(v, 6) ^ c(v, 11) ^ c(v, 25)) + (v & l[5] ^ ~v & l[6]) + m[d] + (q[d] = 16 > d ? q[d] : q[d - 16] + (c(s, 7) ^ c(s, 18) ^ s >>> 3) + q[d - 7] + (c(t, 17) ^ c(t, 19) ^ t >>> 10) | 0), x = (c(u, 2) ^ c(u, 13) ^ c(u, 22)) + (u & l[1] ^ u & l[2] ^ l[1] & l[2]); l = [w + x | 0].concat(l), l[4] = l[4] + w | 0 } for (d = 0; 8 > d; d++)l[d] = l[d] + r[d] | 0 } for (d = 0; 8 > d; d++)for (e = 3; e + 1; e--) { var y = l[d] >> 8 * e & 255; i += (16 > y ? 0 : '') + y.toString(16) } return i };
+	const sha256 = function a(b) { function c(a, b) { return a >>> b | a << 32 - b } for (var d, e, f = Math.pow, g = f(2, 32), h = 'length', i = '', j = [], k = 8 * b[h], l = a.h = a.h || [], m = a.k = a.k || [], n = m[h], o = {}, p = 2; 64 > n; p++)if (!o[p]) { for (d = 0; 313 > d; d += p)o[d] = p; l[n] = f(p, .5) * g | 0, m[n++] = f(p, 1 / 3) * g | 0 } for (b += '\x80'; b[h] % 64 - 56;)b += '\x00'; for (d = 0; d < b[h]; d++) { if (e = b.charCodeAt(d), e >> 8) return; j[d >> 2] |= e << (3 - d) % 4 * 8 } for (j[j[h]] = k / g | 0, j[j[h]] = k, e = 0; e < j[h];) { var q = j.slice(e, e += 16), r = l; for (l = l.slice(0, 8), d = 0; 64 > d; d++) { var s = q[d - 15], t = q[d - 2], u = l[0], v = l[4], w = l[7] + (c(v, 6) ^ c(v, 11) ^ c(v, 25)) + (v & l[5] ^ ~v & l[6]) + m[d] + (q[d] = 16 > d ? q[d] : q[d - 16] + (c(s, 7) ^ c(s, 18) ^ s >>> 3) + q[d - 7] + (c(t, 17) ^ c(t, 19) ^ t >>> 10) | 0), x = (c(u, 2) ^ c(u, 13) ^ c(u, 22)) + (u & l[1] ^ u & l[2] ^ l[1] & l[2]); l = [w + x | 0].concat(l), l[4] = l[4] + w | 0 } for (d = 0; 8 > d; d++)l[d] = l[d] + r[d] | 0 } for (d = 0; 8 > d; d++)for (e = 3; e + 1; e--) { var y = l[d] >> 8 * e & 255; i += (16 > y ? 0 : '') + y.toString(16) } return i };
 
     function updateTableResultHash(container) {
         let resultString = '';
@@ -947,7 +947,7 @@ p cnf 5 6
             }
             return bits.join('');
         };
-        // Cell-group match
+        // Check if the cell bits match group pattern
         const doesBitsMatchPattern = (bits, pattern) => {
             if (bits.length !== pattern.length) return false;
             for (let i = 0; i < bits.length; i++) {
@@ -962,12 +962,13 @@ p cnf 5 6
         const cellGroupMap = Array.from({ length: rowGrayLabels.length }, () =>
             Array(colGrayLabels.length).fill(-1)
         );
+        const DNF_CNF_VALUE_ONE = document.getElementById('formCnfCheckbox').checked ? 0 : 1;
         for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
             const { pattern } = groups[groupIdx];
             for (let rowIdx = 0; rowIdx < rowGrayLabels.length; rowIdx++) {
                 for (let colIdx = 0; colIdx < colGrayLabels.length; colIdx++) {
                     const bits = getCellBits(rowIdx, colIdx);
-                    if (doesBitsMatchPattern(bits, pattern) && cellGroupMap[rowIdx][colIdx] === -1) {
+                    if (doesBitsMatchPattern(bits, pattern) && values[rowIdx][colIdx] === DNF_CNF_VALUE_ONE) {
                         cellGroupMap[rowIdx][colIdx] = groupIdx;
                     }
                 }
@@ -975,19 +976,21 @@ p cnf 5 6
         }
         // Group colors
         const presetGroupColors = [
-            'rgba(66, 135, 245, 0.18)',
-            'rgba(245, 66, 93, 0.18)',
-            'rgba(66, 245, 167, 0.18)',
-            'rgba(245, 211, 66, 0.18)',
-            'rgba(171, 66, 245, 0.18)',
-            'rgba(245, 140, 66, 0.18)'
+            'rgb(66, 135, 245)',
+            'rgb(245, 66, 93)',
+            'rgb(66, 245, 167)',
+            'rgb(245, 211, 66)',
+            'rgb(171, 66, 245)',
+            'rgb(245, 140, 66)'
         ];
 
         // HSV color for extra groups
         const getGroupColor = (groupIndex) => {
-            if (groupIndex < presetGroupColors.length)
-                return presetGroupColors[groupIndex].replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/, 'rgba($1,$2,$3,1)');
-            const hsvToRgba = (hue, saturation, value) => {
+            if (groupIndex < presetGroupColors.length) {
+                return presetGroupColors[groupIndex];
+            }
+            const hsvToRgba = (hueValue, saturation, value) => {
+                const hue = ((hueValue % 360) + 360) % 360;
                 const chroma = value * saturation, segment = (hue / 60) % 2, xComp = chroma * (1 - Math.abs(segment - 1)), matchVal = value - chroma;
                 let rPrim = 0, gPrim = 0, bPrim = 0;
                 if (hue < 60) { rPrim = chroma; gPrim = xComp; }
@@ -997,10 +1000,10 @@ p cnf 5 6
                 else if (hue < 300) { rPrim = xComp; bPrim = chroma; }
                 else { rPrim = chroma; bPrim = xComp; }
                 const red = Math.round((rPrim + matchVal) * 255), green = Math.round((gPrim + matchVal) * 255), blue = Math.round((bPrim + matchVal) * 255);
-                return `rgba(${red}, ${green}, ${blue}, 1)`;
+                return `rgb(${red}, ${green}, ${blue})`;
             };
-            const seq = groupIndex - presetGroupColors.length, hue = (seq * 137.508) % 360;
-            return hsvToRgba(hue, 0.6, 0.98);
+            const seq = groupIndex - presetGroupColors.length, hue = ((seq * 137.508) % 360 + 360) % 360; // Golden-angle
+            return hsvToRgba(hue, 0.65, 0.95);
         };
 
         const cssWidth = canvas.clientWidth || canvas.width;
@@ -1083,7 +1086,7 @@ p cnf 5 6
             ctx.fillText(rowGrayLabels[row], leftHeaderWidth / 2, y);
         }
 
-        // Cell backgrounds
+        // Cell backgrounds for cells in groups
         for (let row = 0; row < rowGrayLabels.length; row++) {
             for (let col = 0; col < colGrayLabels.length; col++) {
                 const groupIdx = cellGroupMap[row][col];
@@ -1124,39 +1127,111 @@ p cnf 5 6
                 ctx.fillText(String(values[row][col]), x + w / 2, y + h / 2);
             }
         }
-        // Draw group outlines with fixed padding
+        // Group outlines options
         const outlineStrokeWidth = 6;
-        const groupPadding = 15;
-        const radius = 35;
+        const groupPadding = 5;
+        const radius = 30;
+        const gridOriginX = leftHeaderWidth;
+        const gridOriginY = topHeaderHeight;
 
+        // Draw rounded rect which can wrap around edges
+        const strokeRoundedRectToroidal = (x, y, w, h, r, color) => {
+            const right = gridOriginX + gridWidth;
+            const bottom = gridOriginY + gridHeight;
+            const needLeftCopy = (x < gridOriginX);
+            const needRightCopy = (x + w > right);
+            const needTopCopy = (y < gridOriginY);
+            const needBottomCopy = (y + h > bottom);
+
+            // Clip strokes to grid area for wrapping groups
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(gridOriginX, gridOriginY, gridWidth, gridHeight);
+            ctx.clip();
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = outlineStrokeWidth;
+            drawRoundedRect(x, y, w, h, Math.min(r, Math.min(w, h) / 2 - 1));
+            ctx.stroke();
+            if (needLeftCopy) {
+                drawRoundedRect(x + gridWidth, y, w, h, Math.min(r, Math.min(w, h) / 2 - 1));
+                ctx.stroke();
+            }
+            if (needRightCopy) {
+                drawRoundedRect(x - gridWidth, y, w, h, Math.min(r, Math.min(w, h) / 2 - 1));
+                ctx.stroke();
+            }
+            if (needTopCopy) {
+                drawRoundedRect(x, y + gridHeight, w, h, Math.min(r, Math.min(w, h) / 2 - 1));
+                ctx.stroke();
+                if (needLeftCopy) { drawRoundedRect(x + gridWidth, y + gridHeight, w, h, Math.min(r, Math.min(w, h) / 2 - 1)); ctx.stroke(); }
+                if (needRightCopy) { drawRoundedRect(x - gridWidth, y + gridHeight, w, h, Math.min(r, Math.min(w, h) / 2 - 1)); ctx.stroke(); }
+            }
+            if (needBottomCopy) {
+                drawRoundedRect(x, y - gridHeight, w, h, Math.min(r, Math.min(w, h) / 2 - 1));
+                ctx.stroke();
+                if (needLeftCopy) { drawRoundedRect(x + gridWidth, y - gridHeight, w, h, Math.min(r, Math.min(w, h) / 2 - 1)); ctx.stroke(); }
+                if (needRightCopy) { drawRoundedRect(x - gridWidth, y - gridHeight, w, h, Math.min(r, Math.min(w, h) / 2 - 1)); ctx.stroke(); }
+            }
+            ctx.restore();
+        };
         for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
-            const groupRects = [];
+            // Find used rows and columns for this group
+            const rowsInGroup = Array(rowGrayLabels.length).fill(false);
+            const colsInGroup = Array(colGrayLabels.length).fill(false);
             for (let row = 0; row < rowGrayLabels.length; row++) {
                 for (let col = 0; col < colGrayLabels.length; col++) {
-                    if (cellGroupMap[row][col] === groupIdx) groupRects.push(getCellRect(row, col));
+                    if (cellGroupMap[row][col] === groupIdx) {
+                        rowsInGroup[row] = true;
+                        colsInGroup[col] = true;
+                    }
                 }
             }
-            if (!groupRects.length) continue;
-
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            for (const rect of groupRects) {
-                if (rect.x < minX) minX = rect.x;
-                if (rect.y < minY) minY = rect.y;
-                if (rect.x + rect.w > maxX) maxX = rect.x + rect.w;
-                if (rect.y + rect.h > maxY) maxY = rect.y + rect.h;
+            // Build segments that wrap around edges
+            function buildSegments(usedIndices) {
+                const length = usedIndices.length;
+                const segments = [];
+                let i = 0;
+                while (i < length) {
+                    while (i < length && !usedIndices[i]) i++;
+                    if (i >= length) break;
+                    const start = i;
+                    while (i < length && usedIndices[i]) i++;
+                    const end = i;
+                    segments.push([start, end]);
+                }
+                if (segments.length > 1 && usedIndices[0] && usedIndices[length - 1]) {
+                    const first = segments.shift();
+                    const last = segments.pop();
+                    segments.unshift([last[0], first[1]]);
+                }
+                return segments;
             }
-
-            // Add padding to group bounds
-            const pad = groupPadding;
-            const x = minX + pad;
-            const y = minY + pad;
-            const w = Math.max(2, (maxX - minX) - 2 * pad);
-            const h = Math.max(2, (maxY - minY) - 2 * pad);
-
-            ctx.strokeStyle = getGroupColor(groupIdx);
-            ctx.lineWidth = outlineStrokeWidth;
-            drawRoundedRect(x, y, w, h, Math.min(radius, Math.min(w, h) / 2 - 1));
-            ctx.stroke();
+            const rowSegments = buildSegments(rowsInGroup);
+            const colSegments = buildSegments(colsInGroup);
+            if (!rowSegments.length || !colSegments.length) continue;
+            const totalRows = rowGrayLabels.length;
+            const totalCols = colGrayLabels.length;
+            function getSpanCount(start, end, length) {
+                return start <= end ? (end - start) : ((length - start) + end);
+            }
+            for (const [rowStart, rowEndRaw] of rowSegments) {
+                for (const [colStart, colEndRaw] of colSegments) {
+                    const rowSpan = Math.max(1, getSpanCount(rowStart, rowEndRaw, totalRows));
+                    const colSpan = Math.max(1, getSpanCount(colStart, colEndRaw, totalCols));
+                    const topLeft = getCellRect(rowStart, colStart);
+                    const minX = topLeft.x;
+                    const minY = topLeft.y;
+                    const width = Math.max(2, colSpan * cellWidth);
+                    const height = Math.max(2, rowSpan * cellHeight);
+                    const pad = groupPadding;
+                    const x = minX + pad;
+                    const y = minY + pad;
+                    const w = Math.max(2, width - 2 * pad);
+                    const h = Math.max(2, height - 2 * pad);
+                    strokeRoundedRectToroidal(x, y, w, h, radius, getGroupColor(groupIdx));
+                }
+            }
         }
     }
 
@@ -1192,13 +1267,13 @@ p cnf 5 6
         const varList = inputTruthTableVariableNames.join(', ');
         const valuesArray = JSON.stringify(truthTableValues);
         return `function oracle(${varList}) {
-        const values = ${valuesArray};
-        const index = [${inputTruthTableVariableNames.join(', ')}].reduce((acc, val) => acc * 2 + (val ? 1 : 0), 0);
-        const v = values[index];
-        if (v === 1 || v === '1') return true;
-        if (v === 0 || v === '0') return false;
-        return undefined;
-    }`;
+    const values = ${valuesArray};
+    const index = [${inputTruthTableVariableNames.join(', ')}].reduce((acc, val) => acc * 2 + (val ? 1 : 0), 0);
+    const v = values[index];
+    if (v === 1 || v === '1') return true;
+    if (v === 0 || v === '0') return false;
+    return undefined;
+}`;
     }
 
     // Parse SAT instance from editor and generate an oracle function
@@ -1286,8 +1361,8 @@ p cnf 5 6
 
         // Return the generated oracle function as a string
         return `function oracle(${paramNames.join(', ')}) {
-            return ${body};
-        }`;
+    return ${body};
+}`;
     }
 
     window.onload = function () {

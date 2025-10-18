@@ -221,7 +221,9 @@ class KarnaughMap {
                 const bits = Array(n).fill('0');
                 for (let i = 0; i < rowVars.length; i++) bits[rowVars[i]] = rowGrayLabels[r][i] || '0';
                 for (let j = 0; j < colVars.length; j++) bits[colVars[j]] = colGrayLabels[c][j] || '0';
-                if (re.test(bits.join(''))) out.push([r, c]);
+                if (re.test(bits.join('')) && kmap.values[r][c] !== 0) {
+                    out.push([r, c]);
+                }
             }
         }
         return out;
@@ -624,23 +626,12 @@ class QuineMcCluskey {
         // Karnaugh map (K-map) groups for the chosen CNF clauses
         let kmapData;
         if (outputs.includes('kmap')) {
-            const used = new Set();
-            for (const pi of chosenExpanded) {
-                for (let i = 0; i < pi.pattern.length; i++) {
-                    if (pi.pattern[i] !== '-') used.add(variableNames[i] || ('V' + i));
-                }
-            }
-            const vars = variableNames.filter(v => used.has(v));
-            const kmap = KarnaughMap.buildKMap(vars, oracleFunction);
+            const kmap = KarnaughMap.buildKMap(variableNames, oracleFunction);
             const groups = chosenExpanded.map(pi => ({
                 kind: 'clause',
                 pattern: pi.pattern
             }));
-            kmapData = { 
-                kmap, 
-                groups, 
-                vars
-            };
+            kmapData = { kmap, groups, vars: variableNames.slice() };
         }
 
         const result = {};
@@ -790,23 +781,12 @@ class QuineMcCluskey {
         // Karnaugh map (K-map) groups for the chosen CNF clauses
         let kmapData;
         if (outputs.includes('kmap')) {
-            const used = new Set();
-            for (const pi of chosenExpanded) {
-                for (let i = 0; i < pi.pattern.length; i++) {
-                    if (pi.pattern[i] !== '-') used.add(variableNames[i] || ('V' + i));
-                }
-            }
-            const vars = variableNames.filter(v => used.has(v));
-            const kmap = KarnaughMap.buildKMap(vars, oracleFunction);
+            const kmap = KarnaughMap.buildKMap(variableNames, oracleFunction);
             const groups = chosenExpanded.map(pi => ({
                 kind: 'term',
                 pattern: pi.pattern
             }));
-            kmapData = { 
-                kmap, 
-                groups, 
-                vars
-            };
+            kmapData = { kmap, groups, vars: variableNames.slice() };
         }
 
         const result = {};
