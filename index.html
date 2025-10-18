@@ -125,7 +125,7 @@
                     <label class='btn btn-sm btn-secondary' for='inputSATInstance' onclick='showInputTab("sat")'>SAT
                         Instance</label>
                 </div>
-                <div id='inputTab-code' style="position: relative;">
+                <div id='inputTab-code' style='position: relative;'>
                     <textarea id='oracle-code' class='form-control' rows='18'>
 function oracle(A, B, C, D, E) {
     // Wikipedia Example
@@ -245,12 +245,13 @@ p cnf 5 6
                 <div id='outputTab-kmap' style='display:none;'>
                     <div class='p-2 rounded d-flex justify-content-center'
                         style='border: 1px solid #444; background: #292E33;'>
-                        <table id='karnaughMapTable' style='margin: 0 auto;'></table>
+                        <canvas id='karnaughMapCanvas' width='800' height='600'
+                            style='width: 100%; border-radius: 0.5rem; background: transparent; display: block;'></canvas>
                     </div>
                 </div>
                 <div id='outputTab-circuit' style='display:none;'>
                     <div class='p-2 rounded' style='border: 1px solid #444; background: #292E33;'>
-                        <canvas id='output-canvas' width='800' height='600'
+                        <canvas id='outputCanvas' width='800' height='600'
                             style='width: 100%; border-radius: 0.5rem; background: transparent; display: block;'></canvas>
                     </div>
                 </div>
@@ -265,7 +266,7 @@ p cnf 5 6
                 </div>
                 <div class='mt-2'>
                     <input type='text' id='output-expression' class='form-control form-control-sm text-center'
-                        style='background: transparent; color: #789fdd; border: none; padding: 0; font-size: 0.7rem;'
+                        style='background: transparent; color: #789fdd; border: none; padding: 0; font-size: 0.7rem; font-family: monospace;'
                         readonly>
                 </div>
             </div>
@@ -289,10 +290,8 @@ p cnf 5 6
 <script src='lib/handsontable/languages.min.js'></script>
 <!-- <script src='https://raw.githubusercontent.com/handsontable/handsontable/refs/tags/16.1.1/handsontable/dist/handsontable.min.js'></script> -->
 <script src='lib/handsontable/handsontable.js'></script>
-
 <script>
     'use strict';
-
     let variableNames = [], usedVariableNames = [], outputTableNeedsUpdate = true;
     let runTimeout = null;
 
@@ -325,9 +324,9 @@ p cnf 5 6
         if (type === 'code') {
             oracleCode = editorCode.getValue();
         } else if (type === 'table') {
-            oracleCode = generateTruthTableCode();
+            oracleCode = generateTruthTableOracleFunction();
         } else if (type === 'sat') {
-            oracleCode = generateSATInstanceCode();
+            oracleCode = generateSATInstanceOracleFunction();
         }
         script.id = 'insert-oracle';
         script.textContent = oracleCode;
@@ -483,7 +482,7 @@ p cnf 5 6
         } else if (document.getElementById('inputTruthTable').checked) {
             showInputTab('table');
             inputTruthTableVariableNames = variableNames.slice();
-            restoreInputTable();
+            setupTable(document.getElementById('oracle-table'), inputTruthTableVariableNames, false);
         } else if (document.getElementById('inputSATInstance').checked) {
             editorSat.setValue(outputSat.getValue());
             showInputTab('sat');
@@ -550,18 +549,18 @@ p cnf 5 6
 
     function toggleCNFDNF() {
         const isCNF = document.getElementById('formCnfCheckbox').checked;
-        var label = document.getElementById("formCnfLabel");
+        var label = document.getElementById('formCnfLabel');
         if (isCNF) {
-            label.textContent = "Form: CNF";
+            label.textContent = 'Form: CNF';
         } else {
-            label.textContent = "Form: DNF";
+            label.textContent = 'Form: DNF';
         }
     }
 
     function renderExpressionTextbox(jsExpression) {
-        let mathExpr = jsExpression.replace(/!([A-Za-z_][A-Za-z0-9_]*)/g, (m, v) => v + '\u0305');
-        mathExpr = mathExpr.replace(/\s*&&\s*/g, ' · ');
-        mathExpr = mathExpr.replace(/\s*\|\|\s*/g, ' + ');
+        let mathExpr = jsExpression.replace(/!([A-Za-z_][A-Za-z0-9_]*)/g, (m, v) => v + '\'');
+        mathExpr = mathExpr.replace(/\s*&&\s*/g, '.');
+        mathExpr = mathExpr.replace(/\s*\|\|\s*/g, '+');
         const outputExpression = document.getElementById('output-expression');
         outputExpression.value = mathExpr;
     }
@@ -672,6 +671,7 @@ p cnf 5 6
                     return row;
                 })
             );
+            updateTableResultHash(container);
         }
         if (document.getElementById('autoRunCheckbox').checked) run();
     }
@@ -705,6 +705,43 @@ p cnf 5 6
         console.log('Output table set up with', usedVariableNames.length, 'variables');
     }
 
+    // https://github.com/Simewu/blockchain-simulator/blob/main/index.html#L689
+    const sha256 = function a(b) { function c(a, b) { return a >>> b | a << 32 - b } for (var d, e, f = Math.pow, g = f(2, 32), h = 'length', i = '', j = [], k = 8 * b[h], l = a.h = a.h || [], m = a.k = a.k || [], n = m[h], o = {}, p = 2; 64 > n; p++)if (!o[p]) { for (d = 0; 313 > d; d += p)o[d] = p; l[n] = f(p, .5) * g | 0, m[n++] = f(p, 1 / 3) * g | 0 } for (b += '\x80'; b[h] % 64 - 56;)b += '\x00'; for (d = 0; d < b[h]; d++) { if (e = b.charCodeAt(d), e >> 8) return; j[d >> 2] |= e << (3 - d) % 4 * 8 } for (j[j[h]] = k / g | 0, j[j[h]] = k, e = 0; e < j[h];) { var q = j.slice(e, e += 16), r = l; for (l = l.slice(0, 8), d = 0; 64 > d; d++) { var s = q[d - 15], t = q[d - 2], u = l[0], v = l[4], w = l[7] + (c(v, 6) ^ c(v, 11) ^ c(v, 25)) + (v & l[5] ^ ~v & l[6]) + m[d] + (q[d] = 16 > d ? q[d] : q[d - 16] + (c(s, 7) ^ c(s, 18) ^ s >>> 3) + q[d - 7] + (c(t, 17) ^ c(t, 19) ^ t >>> 10) | 0), x = (c(u, 2) ^ c(u, 13) ^ c(u, 22)) + (u & l[1] ^ u & l[2] ^ l[1] & l[2]); l = [w + x | 0].concat(l), l[4] = l[4] + w | 0 } for (d = 0; 8 > d; d++)l[d] = l[d] + r[d] | 0 } for (d = 0; 8 > d; d++)for (e = 3; e + 1; e--) { var y = l[d] >> 8 * e & 255; i += (16 > y ? 0 : '') + y.toString(16) } return i };
+
+    function updateTableResultHash(container) {
+        let resultString = '';
+        if (container && container._handsontableInstance) {
+            const hot = container._handsontableInstance;
+            const rowCount = hot.countRows();
+            const resultCol = hot.countCols() - 1;
+            for (let row = 0; row < rowCount; row++) {
+                const v = hot.getDataAtCell(row, resultCol);
+                resultString += (v === '' || v === null || v === undefined) ? 'x' : (v ? '1' : '0');
+            }
+        } else {
+            resultString = truthTableValues
+                .map(v => (v === '' || v === null || v === undefined) ? 'x' : (v ? '1' : '0'))
+                .join('');
+        }
+        let label = 'Result';
+        try {
+            const truncatedHash = sha256(resultString).slice(0, 4).toUpperCase();
+            label = `Result (hash=${truncatedHash})`;
+        } catch (e) {
+            label = 'Result';
+        }
+        if (container && container._handsontableInstance) {
+            const hot = container._handsontableInstance;
+            const currentColWidths = hot.getColWidths ? hot.getColWidths() : undefined;
+            const headers = [...variableNames, label];
+            hot.updateSettings({ colHeaders: headers });
+            if (currentColWidths && Array.isArray(currentColWidths)) {
+                hot.updateSettings({ colWidths: currentColWidths });
+            }
+        }
+        return label;
+    }
+
     function setupTable(container, variableNames, readonly) {
         container.classList.add('ht-theme-main');
 
@@ -714,7 +751,7 @@ p cnf 5 6
         }
         container.innerHTML = '';
 
-        const headers = [...variableNames, 'Result'];
+        let headers = [...variableNames, 'Result'];
         const numVars = variableNames.length;
         const rowCount = 1 << numVars;
 
@@ -737,6 +774,9 @@ p cnf 5 6
             return row;
         });
 
+        // Compute "Result (hash=XXXXXX)" header
+        headers[headers.length - 1] = updateTableResultHash(container);
+
         const columns = Array.from({ length: variableNames.length }, () => ({
             type: 'numeric',
             className: 'htCenter htMiddle',
@@ -745,7 +785,7 @@ p cnf 5 6
         columns.push({ type: 'numeric', className: 'htCenter htMiddle' });
         const enableRowHeader = true;
         const rowHeaderWidth = enableRowHeader ? 20 : 0;
-        const baseColWidth = 60;
+        const baseColWidth = 40;
         const scrollbarWidth = 18;
         const minTableWidth = rowHeaderWidth + (variableNames.length + 1) * baseColWidth + scrollbarWidth;
         let width = container.clientWidth || (container.parentElement && container.parentElement.clientWidth) || minTableWidth;
@@ -757,10 +797,9 @@ p cnf 5 6
         let colWidths = Array(variableNames.length).fill(baseColWidth);
         let resultColWidth = width - rowHeaderWidth - scrollbarWidth - (variableNames.length * baseColWidth);
         resultColWidth = Math.max(resultColWidth, baseColWidth);
-        // resultColWidth = Math.max(resultColWidth, baseColWidth * 2);
         colWidths.push(resultColWidth);
 
-        // Set table height: scale for small values, max 360
+        // Compute table height
         let tableHeight = Math.min(360, 32 + rowCount * 24);
 
         let options = {
@@ -768,7 +807,7 @@ p cnf 5 6
             columns,
             colHeaders: headers,
             rowHeaders: enableRowHeader,
-            rowHeaderWidth: enableRowHeader ? rowHeaderWidth : undefined, // <-- set row header width here
+            rowHeaderWidth: enableRowHeader ? rowHeaderWidth : undefined,
             colWidths: colWidths,
             stretchH: 'none',
             height: tableHeight,
@@ -847,6 +886,10 @@ p cnf 5 6
                         hotInstance.setDataAtCell(row, col, display, 'internal');
                     }
                 }
+
+                // Recompute header hash after any change
+                updateTableResultHash(container);
+
                 if (document.getElementById('autoRunCheckbox').checked) run();
             };
         }
@@ -856,7 +899,7 @@ p cnf 5 6
     }
 
     function renderLogicCircuit() {
-        const canvas = document.getElementById('output-canvas');
+        const canvas = document.getElementById('outputCanvas');
         if (!canvas) return;
         if (circuitExpression.length === 0) return;
         const options = {
@@ -872,26 +915,30 @@ p cnf 5 6
             wireJog: 18,
             marginY: 20,
             minFlat: 10,
-            font: '30px \'Times New Roman\', Times, serif',
-            errorFont: '30px \'Times New Roman\', Times, serif',
+            font: '30px monospace',
+            errorFont: '30px monospace',
             color: '#FFFFFF'
         };
         LogicCircuitRenderer.render(circuitExpression, canvas, options);
     }
 
     function renderKarnaughMapTable() {
-        const table = document.getElementById('karnaughMapTable');
-        if (!table) return;
+        const canvas = document.getElementById('karnaughMapCanvas');
+        if (!canvas) return;
         if (!kmapData) return;
         const { vars, kmap, groups = [] } = kmapData;
         const { layout: { rowVars, colVars, rowGrayLabels, colGrayLabels }, values } = kmap;
 
-        // Axis captions
-        const rowCaption = rowVars.map(i => variableNames[i]).join('') || '—';
-        const colCaption = colVars.map(i => variableNames[i]).join('') || '—';
-        const bitsForCell = (rowIdx, colIdx) => {
-            const n = variableNames.length;
-            const bits = Array(n).fill('0');
+        // Axis labels
+        let delimiter = '.';
+        if (rowVars.length >= 1 && colVars.length >= 1 && variableNames[rowVars[0]].length === 1 && variableNames[colVars[0]].length === 1) {
+            delimiter = '';
+        }
+        const rowLabelCaption = rowVars.map(i => variableNames[i]).join(delimiter) || '-';
+        const colLabelCaption = colVars.map(i => variableNames[i]).join(delimiter) || '-';
+        const getCellBits = (rowIdx, colIdx) => {
+            const numVars = variableNames.length;
+            const bits = Array(numVars).fill('0');
             for (let i = 0; i < rowVars.length; i++) {
                 bits[rowVars[i]] = rowGrayLabels[rowIdx][i] || '0';
             }
@@ -900,102 +947,217 @@ p cnf 5 6
             }
             return bits.join('');
         };
-        // Check if bits match group pattern
-        const matchesPattern = (bits, pattern) => {
+        // Cell-group match
+        const doesBitsMatchPattern = (bits, pattern) => {
             if (bits.length !== pattern.length) return false;
             for (let i = 0; i < bits.length; i++) {
-                const p = pattern[i];
-                if (p !== '-' && p !== bits[i]) {
+                const pat = pattern[i];
+                if (pat !== '-' && pat !== bits[i]) {
                     return false;
                 }
             }
             return true;
         };
-        // Assign group index to each cell
-        const cellGroupIndices = Array.from({ length: rowGrayLabels.length }, () =>
+        // Assign group index to cells
+        const cellGroupMap = Array.from({ length: rowGrayLabels.length }, () =>
             Array(colGrayLabels.length).fill(-1)
         );
         for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
             const { pattern } = groups[groupIdx];
             for (let rowIdx = 0; rowIdx < rowGrayLabels.length; rowIdx++) {
                 for (let colIdx = 0; colIdx < colGrayLabels.length; colIdx++) {
-                    const bits = bitsForCell(rowIdx, colIdx);
-                    if (matchesPattern(bits, pattern) && cellGroupIndices[rowIdx][colIdx] === -1) {
-                        cellGroupIndices[rowIdx][colIdx] = groupIdx;
+                    const bits = getCellBits(rowIdx, colIdx);
+                    if (doesBitsMatchPattern(bits, pattern) && cellGroupMap[rowIdx][colIdx] === -1) {
+                        cellGroupMap[rowIdx][colIdx] = groupIdx;
                     }
                 }
             }
         }
-        // Cell background colors
-        const fixedColors = [
-            'rgba(66, 135, 245, 0.25)',
-            'rgba(245, 66, 93, 0.25)',
-            'rgba(66, 245, 167, 0.25)',
-            'rgba(245, 211, 66, 0.25)',
-            'rgba(171, 66, 245, 0.25)',
-            'rgba(245, 140, 66, 0.25)'
+        // Group colors
+        const presetGroupColors = [
+            'rgba(66, 135, 245, 0.18)',
+            'rgba(245, 66, 93, 0.18)',
+            'rgba(66, 245, 167, 0.18)',
+            'rgba(245, 211, 66, 0.18)',
+            'rgba(171, 66, 245, 0.18)',
+            'rgba(245, 140, 66, 0.18)'
         ];
-        // For more groups, generate colors using HSV
-        const groupColor = (idx, alpha = 0.25) => {
-            if (idx < fixedColors.length) return fixedColors[idx];
-            // Convert HSV to RGBA color
-            const hsvToRgba = (h, s, v, a) => {
-                const c = v * s;
-                const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-                const m = v - c;
-                let r = 0, g = 0, b = 0;
-                if (h < 60) {
-                    r = c; g = x; b = 0;
-                } else if (h < 120) {
-                    r = x; g = c; b = 0;
-                } else if (h < 180) {
-                    r = 0; g = c; b = x;
-                } else if (h < 240) {
-                    r = 0; g = x; b = c;
-                } else if (h < 300) {
-                    r = x; g = 0; b = c;
-                } else {
-                    r = c; g = 0; b = x;
-                }
-                const R = Math.round((r + m) * 255);
-                const G = Math.round((g + m) * 255);
-                const B = Math.round((b + m) * 255);
-                return `rgba(${R}, ${G}, ${B}, ${a})`;
-            };
-            const j = idx - fixedColors.length;
-            const hue = (j * 137.508) % 360; // golden angle for color distribution
-            return hsvToRgba(hue, 0.60, 0.95, alpha);
-        };
-        // Build table header
-        let theadHTML = '<thead>';
-        theadHTML += '<tr>';
-        theadHTML += `<th style="text-align:center; padding:4px;">
-            <div style="font-size:.75em; opacity:.8; white-space:nowrap;">${colCaption} &rarr;</div>
-            <div style="font-size:.75em; opacity:.8; white-space:nowrap;">${rowCaption} &darr;</div>
 
-        </th>`;
-        for (const colLabel of colGrayLabels) {
-            theadHTML += `<th style="text-align:center; font-family:monospace;">${colLabel}</th>`;
+        // HSV color for extra groups
+        const getGroupColor = (groupIndex) => {
+            if (groupIndex < presetGroupColors.length)
+                return presetGroupColors[groupIndex].replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/, 'rgba($1,$2,$3,1)');
+            const hsvToRgba = (hue, saturation, value) => {
+                const chroma = value * saturation, segment = (hue / 60) % 2, xComp = chroma * (1 - Math.abs(segment - 1)), matchVal = value - chroma;
+                let rPrim = 0, gPrim = 0, bPrim = 0;
+                if (hue < 60) { rPrim = chroma; gPrim = xComp; }
+                else if (hue < 120) { rPrim = xComp; gPrim = chroma; }
+                else if (hue < 180) { gPrim = chroma; bPrim = xComp; }
+                else if (hue < 240) { gPrim = xComp; bPrim = chroma; }
+                else if (hue < 300) { rPrim = xComp; bPrim = chroma; }
+                else { rPrim = chroma; bPrim = xComp; }
+                const red = Math.round((rPrim + matchVal) * 255), green = Math.round((gPrim + matchVal) * 255), blue = Math.round((bPrim + matchVal) * 255);
+                return `rgba(${red}, ${green}, ${blue}, 1)`;
+            };
+            const seq = groupIndex - presetGroupColors.length, hue = (seq * 137.508) % 360;
+            return hsvToRgba(hue, 0.6, 0.98);
+        };
+
+        const cssWidth = canvas.clientWidth || canvas.width;
+        const cssHeight = canvas.clientHeight || canvas.height;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = cssWidth * dpr;
+        canvas.height = cssHeight * dpr;
+        canvas.style.width = cssWidth + 'px';
+        canvas.style.height = cssHeight + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // Layout
+        const minCellWidth = 36, minCellHeight = 28, minLeftHeaderWidth = 56, minTopHeaderHeight = 42, padRight = 12, padBottom = 12;
+        const numCols = colGrayLabels.length, numRows = rowGrayLabels.length;
+        const availableWidth = cssWidth - minLeftHeaderWidth - padRight;
+        const availableHeight = cssHeight - minTopHeaderHeight - padBottom;
+        const cellWidth = Math.max(minCellWidth, Math.floor(availableWidth / numCols));
+        const cellHeight = Math.max(minCellHeight, Math.floor(availableHeight / numRows));
+        const leftHeaderWidth = minLeftHeaderWidth;
+        const topHeaderHeight = minTopHeaderHeight;
+        const gridWidth = numCols * cellWidth;
+        const gridHeight = numRows * cellHeight;
+        const font = '16px monospace';
+
+        const getCellRect = (row, col) => ({
+            x: leftHeaderWidth + col * cellWidth,
+            y: topHeaderHeight + row * cellHeight,
+            w: cellWidth,
+            h: cellHeight
+        });
+        const drawRoundedRect = (x, y, w, h, radius) => {
+            radius = Math.min(radius, w / 2, h / 2);
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + w - radius, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+            ctx.lineTo(x + w, y + h - radius);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+            ctx.lineTo(x + radius, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        };
+
+        // Top-left header cell
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = font;
+
+        // Diagonal
+        ctx.strokeStyle = '#34393f';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(leftHeaderWidth, topHeaderHeight);
+        ctx.stroke();
+
+        // Captions
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText(`${colLabelCaption}`, leftHeaderWidth, 0);
+
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`${rowLabelCaption}`, 0, topHeaderHeight - 0);
+
+        // Column gray labels
+        ctx.font = font;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#FFFFFF';
+        for (let col = 0; col < colGrayLabels.length; col++) {
+            const x = leftHeaderWidth + col * cellWidth + cellWidth / 2;
+            ctx.fillText(colGrayLabels[col], x, topHeaderHeight / 2);
         }
-        theadHTML += '</tr>';
-        theadHTML += '</thead>';
-        // Build table body
-        let tbodyHTML = '<tbody>';
-        for (let rowIdx = 0; rowIdx < rowGrayLabels.length; rowIdx++) {
-            tbodyHTML += '<tr>';
-            tbodyHTML += `<th style="text-align:center; font-family:monospace;">${rowGrayLabels[rowIdx]}</th>`;
-            for (let colIdx = 0; colIdx < colGrayLabels.length; colIdx++) {
-                const val = values[rowIdx][colIdx];
-                const groupIdx = cellGroupIndices[rowIdx][colIdx];
-                const bg = groupIdx >= 0 ? groupColor(groupIdx) : 'transparent';
-                const bits = bitsForCell(rowIdx, colIdx);
-                const title = `${bits} (${parseInt(bits, 2)})`;
-                tbodyHTML += `<td title="${title}" style="text-align:center; width:2.25em; height:2em; background:${bg}; font-family:monospace;">${val}</td>`;
+        // Row Gray labels
+        ctx.textAlign = 'center';
+        for (let row = 0; row < rowGrayLabels.length; row++) {
+            const y = topHeaderHeight + row * cellHeight + cellHeight / 2;
+            ctx.fillText(rowGrayLabels[row], leftHeaderWidth / 2, y);
+        }
+
+        // Cell backgrounds
+        for (let row = 0; row < rowGrayLabels.length; row++) {
+            for (let col = 0; col < colGrayLabels.length; col++) {
+                const groupIdx = cellGroupMap[row][col];
+                if (groupIdx >= 0) {
+                    const { x, y, w, h } = getCellRect(row, col);
+                    ctx.fillStyle = '#34393f';
+                    ctx.fillRect(x, y, w, h);
+                }
             }
-            tbodyHTML += '</tr>';
         }
-        tbodyHTML += '</tbody>';
-        table.innerHTML = theadHTML + tbodyHTML;
+
+        // Grid lines
+        ctx.strokeStyle = '#34393f'
+        ctx.lineWidth = 1;
+        for (let col = 0; col <= colGrayLabels.length; col++) {
+            const x = leftHeaderWidth + col * cellWidth + 0.5;
+            ctx.beginPath();
+            ctx.moveTo(x, topHeaderHeight);
+            ctx.lineTo(x, topHeaderHeight + gridHeight);
+            ctx.stroke();
+        }
+        for (let row = 0; row <= rowGrayLabels.length; row++) {
+            const y = topHeaderHeight + row * cellHeight + 0.5;
+            ctx.beginPath();
+            ctx.moveTo(leftHeaderWidth, y);
+            ctx.lineTo(leftHeaderWidth + gridWidth, y);
+            ctx.stroke();
+        }
+
+        // Cell values
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = font;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (let row = 0; row < rowGrayLabels.length; row++) {
+            for (let col = 0; col < colGrayLabels.length; col++) {
+                const { x, y, w, h } = getCellRect(row, col);
+                ctx.fillText(String(values[row][col]), x + w / 2, y + h / 2);
+            }
+        }
+        // Draw group outlines with fixed padding
+        const outlineStrokeWidth = 6;
+        const groupPadding = 15;
+        const radius = 35;
+
+        for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
+            const groupRects = [];
+            for (let row = 0; row < rowGrayLabels.length; row++) {
+                for (let col = 0; col < colGrayLabels.length; col++) {
+                    if (cellGroupMap[row][col] === groupIdx) groupRects.push(getCellRect(row, col));
+                }
+            }
+            if (!groupRects.length) continue;
+
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (const rect of groupRects) {
+                if (rect.x < minX) minX = rect.x;
+                if (rect.y < minY) minY = rect.y;
+                if (rect.x + rect.w > maxX) maxX = rect.x + rect.w;
+                if (rect.y + rect.h > maxY) maxY = rect.y + rect.h;
+            }
+
+            // Add padding to group bounds
+            const pad = groupPadding;
+            const x = minX + pad;
+            const y = minY + pad;
+            const w = Math.max(2, (maxX - minX) - 2 * pad);
+            const h = Math.max(2, (maxY - minY) - 2 * pad);
+
+            ctx.strokeStyle = getGroupColor(groupIdx);
+            ctx.lineWidth = outlineStrokeWidth;
+            drawRoundedRect(x, y, w, h, Math.min(radius, Math.min(w, h) / 2 - 1));
+            ctx.stroke();
+        }
     }
 
     function fillTruthTableSelection(value) {
@@ -1026,20 +1188,21 @@ p cnf 5 6
         hot._lastSelection = sel;
     }
 
-    function generateTruthTableCode() {
+    function generateTruthTableOracleFunction() {
         const varList = inputTruthTableVariableNames.join(', ');
         const valuesArray = JSON.stringify(truthTableValues);
         return `function oracle(${varList}) {
-    const values = ${valuesArray};
-    const index = [${inputTruthTableVariableNames.join(', ')}].reduce((acc, val) => acc * 2 + (val ? 1 : 0), 0);
-    const v = values[index];
-    if (v === 1 || v === '1') return true;
-    if (v === 0 || v === '0') return false;
-    return undefined;
-}`;
+        const values = ${valuesArray};
+        const index = [${inputTruthTableVariableNames.join(', ')}].reduce((acc, val) => acc * 2 + (val ? 1 : 0), 0);
+        const v = values[index];
+        if (v === 1 || v === '1') return true;
+        if (v === 0 || v === '0') return false;
+        return undefined;
+    }`;
     }
+
     // Parse SAT instance from editor and generate an oracle function
-    function generateSATInstanceCode() {
+    function generateSATInstanceOracleFunction() {
         const raw = editorSat.getValue();
         const lines = raw.split(/\r?\n/);
 
@@ -1123,13 +1286,13 @@ p cnf 5 6
 
         // Return the generated oracle function as a string
         return `function oracle(${paramNames.join(', ')}) {
-        return ${body};
-    }`;
+            return ${body};
+        }`;
     }
 
     window.onload = function () {
         setupSampleCodeEditors();
+        run();
     };
 </script>
-
 </html>
