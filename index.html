@@ -110,7 +110,7 @@
 <body data-bs-theme='dark' class='bg-body text-body'>
     <div class='container my-4 p-4 rounded-3 bg-body-tertiary'>
         <div class='row g-3 align-items-stretch'>
-            <div class='col-12 col-lg-6'>
+            <div class='col-12 col-lg-5'>
                 <label for='oracle-code' class='form-label display-6 fw-light text-body-emphasis'
                     style='font-size: 1.2rem;'>Arbitrary Oracle Function</label>
                 <div class='btn-group rounded-top w-100' style='overflow-x: auto'>
@@ -196,7 +196,7 @@ p cnf 5 6
                     <span style='font-size: 1.5rem;'>&larr;</span>
                 </button>
             </div>
-            <div class='col-12 col-lg-5'>
+            <div class='col-12 col-lg-6'>
                 <label for='output-code' class='form-label display-6 fw-light text-body-emphasis'
                     style='font-size: 1.2rem;'>Minimal Logic (Quine-McCluskey)</label>
                 <div class='btn-group rounded-top w-100' style='overflow-x: auto'>
@@ -217,9 +217,9 @@ p cnf 5 6
                     <label class='btn btn-sm btn-secondary' for='outputTruthTable'
                         onclick='showOutputTab("table")'>Truth Table</label>
 
-                    <input type='radio' class='btn-check' name='outputOptions' id='outputSATInstance'
+                    <input type='radio' class='btn-check' name='outputOptions' id='outputSAT'
                         autocomplete='off'>
-                    <label class='btn btn-sm btn-secondary' for='outputSATInstance' onclick='showOutputTab("sat")'>SAT
+                    <label class='btn btn-sm btn-secondary' for='outputSAT' onclick='showOutputTab("sat")'>SAT
                         Instance</label>
                 </div>
                 <div class='my-2 d-flex align-items-center' style='gap: 0.5rem;'>
@@ -388,56 +388,80 @@ p cnf 5 6
 
         // CNF is true, DNF is false
         const isCNF = document.getElementById('formCnfCheckbox').checked;
-        let expression, satExpression, kmapObject;
+        let output, kmapObject, outputs = ['expr', 'sat'];
+
+        if (document.getElementById('outputKMap').checked) outputs.push('kmap');
 
         if (isCNF) {
-            ({ expr: expression, sat: satExpression, kmap: kmapObject } = QuineMcCluskey.solveCNF(variableNames, window.oracle, ['expr', 'sat', 'kmap']));
+            output = QuineMcCluskey.solveCNF(variableNames, window.oracle, outputs);
         } else {
-            ({ expr: expression, sat: satExpression, kmap: kmapObject } = QuineMcCluskey.solveDNF(variableNames, window.oracle, ['expr', 'sat', 'kmap']));
+            output = QuineMcCluskey.solveDNF(variableNames, window.oracle, outputs);
         }
 
-        renderExpressionTextbox(expression);
-        circuitExpression = expression.replace(/&&/g, '&').replace(/\|\|/g, '|');
-        kmapData = kmapObject;
-        outputSat.setValue(satExpression);
+        // Assign Karnaugh map and SAT output
+        if (output && output.kmap) kmapData = output.kmap;
+        if (output && output.sat) {
+            if (typeof outputSat !== 'undefined' && outputSat) outputSat.setValue(output.sat);
+        }
 
-        // Collect used vars from expression
-        const identifierRegex = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
-        const used = new Set();
-        let match;
-        while ((match = identifierRegex.exec(expression)) !== null) {
-            const name = match[0];
-            // Filter to original vars (skip literals)
-            if (variableNames.includes(name) && name !== 'true' && name !== 'false') {
-                used.add(name);
+        if (output && output.expr) {
+            const expression = output.expr;
+            renderExpressionTextbox(expression);
+            circuitExpression = expression.replace(/&&/g, '&').replace(/\|\|/g, '|');
+
+            // Fetch used variables from expression
+            const identifierRegex = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
+            const used = new Set();
+            let match;
+            while ((match = identifierRegex.exec(expression)) !== null) {
+                const name = match[0];
+                // Filter to original vars (skip literals)
+                if (variableNames.includes(name) && name !== 'true' && name !== 'false') {
+                    used.add(name);
+                }
+            }
+            // Only keep used variable names
+            const maintainVars = document.getElementById('maintainVarsCheckbox').checked;
+            if (maintainVars) {
+                usedVariableNames = variableNames.slice();
+            } else {
+                usedVariableNames = variableNames.filter(v => used.has(v));
+            }
+            const funcArgs = usedVariableNames.join(',');
+            const funcBody = 'return ' + expression + ';';
+            const finalFunction = 'function oracle(' + funcArgs + ') {\n  ' + funcBody + '\n}';
+            if (typeof outputCode !== 'undefined' && outputCode) {
+                outputCode.setValue(finalFunction);
+            }
+            console.log(finalFunction);
+        } else {
+            // No expression generated
+            circuitExpression = '';
+            usedVariableNames = [];
+            if (typeof outputCode !== 'undefined' && outputCode) {
+                outputCode.setValue('// No expression generated');
             }
         }
-        // Only keep used variable names
-        const maintainVars = document.getElementById('maintainVarsCheckbox').checked;
-        if (maintainVars) {
-            usedVariableNames = variableNames.slice();
-        } else {
-            usedVariableNames = variableNames.filter(v => used.has(v));
-        }
-        const funcArgs = usedVariableNames.join(',');
-        const funcBody = 'return ' + expression + ';';
-        const finalFunction = 'function oracle(' + funcArgs + ') {\n  ' + funcBody + '\n}';
-        outputCode.setValue(finalFunction);
-        console.log(finalFunction);
 
         outputTableNeedsUpdate = true;
         if (document.getElementById('outputTruthTable').checked) {
-            setupOutputTable();
+            if (output && output.expr) {
+                setupOutputTable();
+            }
         }
         if (document.getElementById('outputKMap').checked) {
-            renderKarnaughMapTable();
+            if (kmapData) {
+                renderKarnaughMapTable();
+            }
         }
         if (document.getElementById('outputCircuit').checked) {
-            renderLogicCircuit();
+            if (circuitExpression && circuitExpression.length) {
+                renderLogicCircuit();
+            }
         }
 
         document.getElementById('runButton').disabled = document.getElementById('autoRunCheckbox').checked;
-        document.getElementById('copyButton').disabled = false;
+        document.getElementById('copyButton').disabled = !(output && output.expr);
 
         const errorIndicator = document.getElementById('errorIndicator');
         if (errorIndicator) {
@@ -503,7 +527,9 @@ p cnf 5 6
         }
         if (tab === 'kmap') {
             document.getElementById('outputTab-kmap').style.display = '';
-            renderKarnaughMapTable();
+            if (document.getElementById('autoRunCheckbox').checked) {
+                run();
+            }
         } else {
             document.getElementById('outputTab-kmap').style.display = 'none';
         }
@@ -856,6 +882,7 @@ p cnf 5 6
     function renderKarnaughMapTable() {
         const table = document.getElementById('karnaughMapTable');
         if (!table) return;
+        if (!kmapData) return;
         const { vars, kmap, groups = [] } = kmapData;
         const { layout: { rowVars, colVars, rowGrayLabels, colGrayLabels }, values } = kmap;
 
